@@ -120,8 +120,10 @@ static void test_build_info_has_diagnostics_fields()
     expect(hasLine(text, QStringLiteral("network_active=")), "build info has network_active");
     expect(hasLine(text, QStringLiteral("avg_packet_loss=")), "build info has avg_packet_loss");
     expect(hasLine(text, QStringLiteral("dropped_frames=")), "build info has dropped_frames");
-    expect(text.contains(QStringLiteral("render_dropped_semantics=last_observed_renderer_one_second_window_not_session_total\n")),
-        "build info explains dropped frame window");
+    expect(text.contains(QStringLiteral("render_dropped_semantics=session_total_renderer_drops\n")),
+        "build info says dropped frames are a session total");
+    expect(text.contains(QStringLiteral("measured_bitrate_semantics=session_mean_kbps_of_measured_seconds\n")),
+        "build info says bitrate is a session mean");
     expect(hasLine(text, QStringLiteral("frames_lost=")), "build info has frames_lost");
     expect(hasLine(text, QStringLiteral("measured_bitrate=")), "build info has measured_bitrate");
     expect(hasLine(text, QStringLiteral("session_duration_sec=")), "build info has session_duration_sec");
@@ -438,6 +440,23 @@ static const QSet<QString> kBackendHealthKeys = {
     "window_s", "loss_max_pct", "frames_lost", "bitrate_min_kbps", "bitrate_p50_kbps", "render_dropped_max",
     "queue_max", "vps_sent", "vps_lost", "vps_rtt_p50_ms", "vps_rtt_p95_ms", "vps_rtt_max_ms", "vps_jitter_ms"};
 
+static void test_session_totals_cover_whole_session()
+{
+    Nax5SessionTotals totals;
+    expect(totals.averageBitrateKbps() == -1 && totals.averagePacketLoss() == 0, "empty totals");
+    // A lossy middle and a quiet final second, as in the 26.09 Maikop session.
+    const QList<Nax5StreamSecond> samples = {
+        {0.00, 0, 5000, 0, 1}, {0.10, 2, 3000, 1200, 3}, {0.02, 4, 4000, 300, 2}, {0.00, 4, 0, 0, 1}};
+    for (const auto &s : samples) totals.add(s);
+    expect(totals.seconds() == 4, "totals count seconds");
+    expect(totals.renderDroppedTotal() == 1500, "dropped frames summed over the session, not the last second");
+    expect(totals.averageBitrateKbps() == 4000, "bitrate averages only measured seconds");
+    expect(qAbs(totals.averagePacketLoss() - 0.03) < 1e-9, "packet loss is the session mean");
+    expect(qAbs(totals.maxPacketLoss() - 0.10) < 1e-9, "max packet loss over the session");
+    totals.reset();
+    expect(totals.seconds() == 0 && totals.renderDroppedTotal() == 0, "reset clears totals");
+}
+
 static void test_stream_health_window()
 {
     Nax5StreamHealth health;
@@ -593,6 +612,7 @@ int main(int argc, char **argv)
     test_queue_recovery_and_sanitization();
     test_crash_dumps_are_queued_as_crash_parts();
     test_path_summary();
+    test_session_totals_cover_whole_session();
     test_stream_health_window();
     test_telemetry_metadata_batch();
     test_path_probe_local_echo();

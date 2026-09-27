@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-AGPL-3.0-only-OpenSSL
 
 #include <streamsession.h>
+#include "nax5/session/nax5sessionlifecycle.h"
 #ifdef NAX5_STREAM_REPLAY
 #include "nax5/nax5streamreplay.h"
 // Replay tests run the full microphone path but never send to a console.
@@ -2247,7 +2248,9 @@ void StreamSession::Event(ChiakiEvent *event)
 		case CHIAKI_EVENT_QUIT:
 			if(!connected && !holepunch_session && chiaki_quit_reason_is_error(event->quit.reason) && connect_timer.elapsed() < SESSION_RETRY_SECONDS * 1000)
 			{
-				QTimer::singleShot(SESSION_RETRY_SECONDS / 3, this, &StreamSession::Start);
+				// Upstream passed SESSION_RETRY_SECONDS / 3 (= 6) as milliseconds and hammered
+				// the console with ~150 session requests in 2 s while it was still busy.
+				QTimer::singleShot(nax5StreamRetryDelayMs(connect_timer.elapsed()), this, &StreamSession::Start);
 				return;
 			}
 			connected = false;

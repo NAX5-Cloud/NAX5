@@ -19,6 +19,7 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QSettings>
 #include <QElapsedTimer>
 #include <QEventLoop>
 #include <QFile>
@@ -373,7 +374,10 @@ void Nax5SessionController::onAuthStateChanged()
         nax5RecoverReports(nax5ReportQueueRoot(), auth->userId(), diagnostic_report_id);
         queueCrashDumps();
         flushPendingClientReport();
-        syncCurrent();
+        // An /end/ that never reached the server must land before /current/,
+        // or the client would reconnect to a session the player already left.
+        if (!resumePersistedTerminal())
+            syncCurrent();
         return;
     }
     diagnostic_timer->stop();
@@ -461,6 +465,7 @@ void Nax5SessionController::onDiagnosticTick()
     second.render_dropped = last_dropped_frames;
     if (backend && backend->qmlWindow())
         second.queue_depth = backend->qmlWindow()->queueDepthAverage();
+    session_totals.add(second);
     if (stream_health.add(second) && !isOperatorTest())
         emitTelemetry(QStringLiteral("STREAM_HEALTH"), stream_health.take(path_probe.window(Nax5StreamHealth::kWindowSeconds)));
 }
@@ -499,12 +504,15 @@ Nax5BuildInfoSnapshot Nax5SessionController::buildInfoSnapshot()
     if (live || stream_connected_at.isValid() || last_dropped_frames > 0 || last_frames_lost > 0)
     {
         snapshot.has_stream_stats = true;
-        snapshot.avg_packet_loss = last_avg_packet_loss;
-        if (stream_max_packet_loss > 0)
-            snapshot.max_packet_loss = QString::number(stream_max_packet_loss, 'f', 6);
-        snapshot.dropped_frames = last_dropped_frames;
+        // Whole-session figures once 1 Hz samples exist; the last sample only before that.
+        const bool totals = session_totals.seconds() > 0;
+        snapshot.avg_packet_loss = totals ? session_totals.averagePacketLoss() : last_avg_packet_loss;
+        const double max_loss = totals ? qMax(session_totals.maxPacketLoss(), stream_max_packet_loss) : stream_max_packet_loss;
+        if (max_loss > 0)
+            snapshot.max_packet_loss = QString::number(max_loss, 'f', 6);
+        snapshot.dropped_frames = totals ? session_totals.renderDroppedTotal() : last_dropped_frames;
         snapshot.frames_lost = last_frames_lost;
-        snapshot.measured_bitrate_kbps = last_measured_bitrate_kbps;
+        snapshot.measured_bitrate_kbps = totals ? session_totals.averageBitrateKbps() : last_measured_bitrate_kbps;
     }
     if (stream_connected_at.isValid())
         snapshot.session_duration_sec = diagnostic_duration_ms / 1000;
@@ -571,6 +579,7 @@ void Nax5SessionController::play()
     ignore_cancel_result = false;
     stream_connected_at = QDateTime();
     stream_max_packet_loss = 0;
+    session_totals.reset();
     last_avg_packet_loss = 0;
     last_frames_lost = 0;
     last_measured_bitrate_kbps = -1;
@@ -686,10 +695,43 @@ void Nax5SessionController::dispatchTerminal(Nax5TerminalMutation mutation, bool
     pending_terminal.generation = generation;
     pending_terminal.attempts = 0;
     pending_terminal.silent = silent;
+    pending_terminal.resumed = false;
     pending_terminal.request_id = 0;
     if (pending_terminal.token.isEmpty() || pending_terminal.session_id.isEmpty())
         return;
+    if (auth && auth->userId() > 0)
+    {
+        QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+            Nax5Runtime::settingsOrganizationName(), Nax5Runtime::settingsApplicationName());
+        nax5SaveTerminal(settings, {auth->userId(), pending_terminal.session_id, mutation, QString()});
+    }
     sendPendingTerminal();
+}
+
+bool Nax5SessionController::resumePersistedTerminal()
+{
+    if (!auth || auth->userId() <= 0 || pending_terminal.mutation != Nax5TerminalMutationNone)
+        return false;
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+        Nax5Runtime::settingsOrganizationName(), Nax5Runtime::settingsApplicationName());
+    const Nax5PersistedTerminal saved = nax5LoadTerminal(settings, auth->userId());
+    if (saved.mutation == Nax5TerminalMutationNone || saved.session_id == session_id)
+        return false;
+    qCInfo(nax5SessionLog) << "resending terminal left from previous run" << static_cast<int>(saved.mutation);
+    pending_terminal = {};
+    pending_terminal.mutation = saved.mutation;
+    pending_terminal.token = liveToken();
+    pending_terminal.session_id = saved.session_id;
+    pending_terminal.generation = generation;
+    pending_terminal.silent = true;
+    pending_terminal.resumed = true;
+    if (pending_terminal.token.isEmpty())
+    {
+        pending_terminal = {};
+        return false;
+    }
+    sendPendingTerminal();
+    return true;
 }
 
 void Nax5SessionController::sendPendingTerminal()
@@ -743,6 +785,21 @@ void Nax5SessionController::handleTerminalFinished(quint64 request_id, const Nax
         return;
     if (retryTerminalIfNeeded(result))
         return;
+    if (!nax5TerminalShouldRetry(result.error))
+    {
+        // The server gave a final answer (done, already ended, not found): nothing to resend.
+        QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+            Nax5Runtime::settingsOrganizationName(), Nax5Runtime::settingsApplicationName());
+        nax5ClearTerminal(settings, pending_terminal.session_id);
+    }
+    if (pending_terminal.resumed)
+    {
+        qCInfo(nax5SessionLog) << "resent terminal from previous run" << static_cast<int>(mutation)
+                               << "result" << static_cast<int>(result.error);
+        pending_terminal = {};
+        syncCurrent();
+        return;
+    }
     pending_terminal.request_id = 0;
     const bool silent = ignore_cancel_result || pending_terminal.silent || shutdown_started;
     pending_terminal.mutation = Nax5TerminalMutationNone;

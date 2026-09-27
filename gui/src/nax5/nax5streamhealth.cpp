@@ -70,3 +70,31 @@ QJsonObject Nax5StreamHealth::take(const Nax5PathWindow &path)
     seconds.clear();
     return out;
 }
+
+void Nax5SessionTotals::reset()
+{
+    *this = Nax5SessionTotals();
+}
+
+void Nax5SessionTotals::add(const Nax5StreamSecond &second)
+{
+    ++sample_count;
+    loss_sum += second.packet_loss;
+    max_loss = qMax(max_loss, second.packet_loss);
+    dropped_total += qMax(0, second.render_dropped);
+    if (second.bitrate_kbps > 0)
+    {
+        bitrate_sum += second.bitrate_kbps;
+        ++bitrate_count;
+    }
+}
+
+double Nax5SessionTotals::averagePacketLoss() const
+{
+    return sample_count > 0 ? loss_sum / sample_count : 0;
+}
+
+qint64 Nax5SessionTotals::averageBitrateKbps() const
+{
+    return bitrate_count > 0 ? bitrate_sum / bitrate_count : -1;
+}
