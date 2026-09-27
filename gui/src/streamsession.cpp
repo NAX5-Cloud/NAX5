@@ -1281,8 +1281,13 @@ void StreamSession::InitMic(unsigned int channels, unsigned int rate)
 			clear_mic_buffers();
 			return;
 		}
+		// Size both buffers from the frame layout, never from SDL_AudioCVT::len_ratio:
+		// on Windows sdl2-compat 2.32.64 packs SDL_AudioCVT inside the DLL but the
+		// public header does not, so len_ratio read here is garbage (often 0) and the
+		// echo buffer came out empty, corrupting the heap on every played frame.
+		// Mono mic frame -> stereo for the encoder.
 		mic_speex_cvt.len = mic_buf.size_bytes;
-		mic_resampler_buf = (uint8_t*) calloc(mic_speex_cvt.len * mic_speex_cvt.len_mult, sizeof(uint8_t));
+		mic_resampler_buf = (uint8_t*) calloc(mic_buf.size_bytes * 2 * qMax(1, mic_speex_cvt.len_mult), sizeof(uint8_t));
 		if(!mic_resampler_buf)
 		{
 			CHIAKI_LOGE(GetChiakiLog(), "Mic resampler buf could not be created, aborting mic startup");
@@ -1296,8 +1301,9 @@ void StreamSession::InitMic(unsigned int channels, unsigned int rate)
 			clear_mic_buffers();
 			return;
 		}
-		echo_speex_cvt.len = mic_speex_cvt.len * mic_speex_cvt.len_ratio;
-		echo_resampler_buf = (uint8_t*) calloc(echo_speex_cvt.len * echo_speex_cvt.len_mult, sizeof(uint8_t));
+		// Stereo playback frame (what PushAudioFrame copies in) -> mono echo reference.
+		echo_speex_cvt.len = mic_buf.size_bytes * 2;
+		echo_resampler_buf = (uint8_t*) calloc(echo_speex_cvt.len * qMax(1, echo_speex_cvt.len_mult), sizeof(uint8_t));
 		if(!echo_resampler_buf)
 		{
 			CHIAKI_LOGE(GetChiakiLog(), "Echo resampler buf could not be created, aborting mic startup");
