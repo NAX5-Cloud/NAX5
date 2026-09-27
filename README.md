@@ -4,9 +4,9 @@
 
 ## Скачать
 
-Актуальная версия — **Alpha 0.5 build 6** для Windows x64.
+Актуальная версия — **Alpha 0.5 build 14** для Windows x64.
 
-[Скачать NAX5-windows.zip](https://github.com/alex1isupov-debug/NAX5/releases/download/alpha-0.5-build-6/NAX5-windows.zip)
+[Скачать NAX5-windows.zip](https://github.com/alex1isupov-debug/NAX5/releases/download/alpha-0.5-build-14/NAX5-windows.zip)
 
 Распакуйте архив и запустите `NAX5.exe`. Войдите с тем же email и паролем, что на [сайте NAX5](https://www.cloudgta6.com/), затем нажмите «Играть».
 
