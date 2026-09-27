@@ -101,7 +101,8 @@ try {
     $a1 = if ($idA1) { $json.sessions.$idA1 } else { $null }; $b = if ($idB) { $json.sessions.$idB } else { $null }
     $checks = @(
         @{ ok = ($a1.status -eq 'ENDED' -and $a1.played_seconds -gt 0); name = "A's played session is ENDED with played time"; detail = "$($a1.status) $($a1.played_seconds)s" },
-        @{ ok = ($b.status -eq 'EXPIRED' -and $b.played_seconds -gt 0); name = "B's dropped session is EXPIRED and keeps its played time"; detail = "$($b.status) $($b.played_seconds)s reason=$($b.end_reason_code)" },
+        @{ ok = ($b.status -eq 'EXPIRED' -and $b.end_reason_code -eq 'HEARTBEAT_LOST'); name = "B's dropped session is EXPIRED as HEARTBEAT_LOST"; detail = "$($b.status) reason=$($b.end_reason_code)" },
+        @{ ok = ($b.played_seconds -ge 1 -and $b.played_seconds -le 4); name = "B's play time stops at its last heartbeat (~2 s), not at expiry"; detail = "$($b.played_seconds)s" },
         @{ ok = ($json.play_requested_events -ge 1); name = 'client event stored by the backend'; detail = "$($json.play_requested_events)" },
         @{ ok = ($null -ne $json.crash_report -and $json.crash_report.is_archive); name = 'crash report stored as archive'; detail = '' },
         @{ ok = ($json.crash_report.preview_has_summary -and $json.crash_report.preview_has_dump_placeholder); name = 'admin preview shows crash summary and dump placeholder'; detail = '' }
@@ -109,9 +110,6 @@ try {
     foreach ($c in $checks) {
         Write-Host ('{0} {1} {2}' -f ($(if ($c.ok) { 'ok' } else { 'FAIL' }), $c.name, $(if ($c.detail) { "-- $($c.detail)" } else { '' })))
         if (-not $c.ok) { $failures += $c.name }
-    }
-    if ($b.end_reason_code -eq 'LEASE_EXPIRED_DURING_ALLOCATION') {
-        Write-Host "note: a dropped session is labelled LEASE_EXPIRED_DURING_ALLOCATION (cleanup on the next Play), not a heartbeat loss"
     }
 
     Stop-Process -Id $server.Id -Force; $server = $null
