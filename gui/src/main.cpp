@@ -20,6 +20,9 @@ int main(int argc, char *argv[]) { return real_main(argc, argv); }
 #include <discoverymanager.h>
 #include <qmlmainwindow.h>
 #include "nax5/nax5crashhandler.h"
+#ifdef NAX5_STREAM_REPLAY
+#include "nax5/nax5streamreplay.h"
+#endif
 #include "nax5/nax5processlog.h"
 #include "nax5/nax5runtime.h"
 #include <QApplication>
@@ -193,6 +196,17 @@ int real_main(int argc, char *argv[])
 	if(!parser.isSet(profile_option))
 		use_alt_settings = true;
 
+#ifdef NAX5_STREAM_REPLAY
+	if(nax5StreamReplayActive())
+	{
+		// Test build only: stream recorded media through the real stream window.
+		StreamSessionConnectInfo replay_info(&settings, CHIAKI_TARGET_PS5_1, QStringLiteral("127.0.0.1"),
+			QStringLiteral("replay"), QByteArray(sizeof(ChiakiConnectInfo::regist_key), 0),
+			QByteArray(sizeof(ChiakiConnectInfo::morning), 0), QString(), QString(), false, false, false, false);
+		nax5StreamReplayApply(replay_info);
+		return RunStream(app, replay_info);
+	}
+#endif
 	if(args.length() == 0)
 		return RunMain(app, use_alt_settings ? &alt_settings : &settings, exit_app_on_stream_exit);
 

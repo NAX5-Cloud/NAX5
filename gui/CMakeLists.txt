@@ -181,6 +181,14 @@ target_link_libraries(placebo-libav-impl PkgConfig::LIBPLACEBO FFMPEG::avcodec F
 target_link_libraries(chiaki PkgConfig::LIBPLACEBO placebo-libav-impl)
 
 target_link_libraries(chiaki chiaki-lib)
+
+# Test-only stream replay (recorded media instead of a PS5). Never enable for
+# product packages; release scripts configure with -DNAX5_STREAM_REPLAY=OFF.
+option(NAX5_STREAM_REPLAY "Build chiaki with the recorded-media stream replay test mode" OFF)
+if(NAX5_STREAM_REPLAY)
+	target_sources(chiaki PRIVATE include/nax5/nax5streamreplay.h src/nax5/nax5streamreplay.cpp)
+	target_compile_definitions(chiaki PRIVATE NAX5_STREAM_REPLAY)
+endif()
 if(CHIAKI_ENABLE_CLI)
 	add_definitions(-DCHIAKI_ENABLE_CLI)
 	target_link_libraries(chiaki chiaki-cli-lib)

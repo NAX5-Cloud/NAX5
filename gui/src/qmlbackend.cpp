@@ -1,3 +1,6 @@
+#ifdef NAX5_STREAM_REPLAY
+#include "nax5/nax5streamreplay.h"
+#endif
 #include "qmlbackend.h"
 #include "qmlsettings.h"
 #include "qmlmainwindow.h"
@@ -744,6 +747,10 @@ void QmlBackend::setNax5LastOperatorConsoleCode(const QString &code)
 
 bool QmlBackend::nax5RemotePlayAllowed() const
 {
+#ifdef NAX5_STREAM_REPLAY
+    if (nax5StreamReplayActive())
+        return true;
+#endif
     return nax5_auth && nax5_auth->authenticated();
 }
 

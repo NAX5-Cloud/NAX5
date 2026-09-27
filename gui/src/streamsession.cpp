@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: LicenseRef-AGPL-3.0-only-OpenSSL
 
 #include <streamsession.h>
+#ifdef NAX5_STREAM_REPLAY
+#include "nax5/nax5streamreplay.h"
+// Replay tests run the full microphone path but never send to a console.
+#define NAX5_SEND_MIC_FRAME(buf) nax5StreamReplayMicFrame()
+#else
+#define NAX5_SEND_MIC_FRAME(buf) chiaki_opus_encoder_frame((buf), &opus_encoder)
+#endif
 #include <settings.h>
 #include <controllermanager.h>
 
@@ -619,6 +626,13 @@ void StreamSession::Start()
 {
 	if(!connect_timer.isValid())
 		connect_timer.start();
+#ifdef NAX5_STREAM_REPLAY
+	if(nax5StreamReplayActive())
+	{
+		nax5StreamReplayStart(this);
+		return;
+	}
+#endif
 	ChiakiErrorCode err = chiaki_session_start(&session);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{
@@ -630,6 +644,13 @@ void StreamSession::Start()
 void StreamSession::Stop()
 {
 	mic_active.storeRelaxed(false);
+#ifdef NAX5_STREAM_REPLAY
+	if(nax5StreamReplayActive())
+	{
+		nax5StreamReplayStop(this);
+		return;
+	}
+#endif
 	chiaki_session_stop(&session);
 }
 
@@ -667,9 +688,15 @@ void StreamSession::ToggleMute()
 				CHIAKI_LOGE(GetChiakiLog(), "Microphone initialization failed, leaving microphone muted");
 				return;
 			}
+#ifdef NAX5_STREAM_REPLAY
+			if(!nax5StreamReplayActive())
+#endif
 			chiaki_session_connect_microphone(&session);
 			mic_connected = true;
 		}
+#ifdef NAX5_STREAM_REPLAY
+	if(!nax5StreamReplayActive())
+#endif
 	chiaki_session_toggle_microphone(&session, muted);
 	if (muted)
 		muted = false;
@@ -1452,7 +1479,7 @@ bool StreamSession::ProcessMicFrame(int16_t *echo_buf)
 {
 	if(!speech_processing_enabled)
 	{
-		chiaki_opus_encoder_frame(mic_buf.buf, &opus_encoder);
+		NAX5_SEND_MIC_FRAME(mic_buf.buf);
 		return true;
 	}
 
@@ -1486,7 +1513,7 @@ bool StreamSession::ProcessMicFrame(int16_t *echo_buf)
 		return false;
 	}
 
-	chiaki_opus_encoder_frame(reinterpret_cast<int16_t *>(mic_resampler_buf), &opus_encoder);
+	NAX5_SEND_MIC_FRAME(reinterpret_cast<int16_t *>(mic_resampler_buf));
 	return true;
 }
 #endif
@@ -1520,7 +1547,7 @@ void StreamSession::ReadMic(const QByteArray &micdata)
 		if(!ProcessMicFrame(echo_buf))
 			return;
 #else
-	    chiaki_opus_encoder_frame(mic_buf.buf, &opus_encoder);
+	    NAX5_SEND_MIC_FRAME(mic_buf.buf);
 #endif
 		bytes_read -= mic_bytes_left;
 		uint32_t frames = bytes_read / mic_buf.size_bytes;
@@ -1531,7 +1558,7 @@ void StreamSession::ReadMic(const QByteArray &micdata)
 			if(!ProcessMicFrame(echo_buf))
 				return;
 #else
-	    chiaki_opus_encoder_frame(mic_buf.buf, &opus_encoder);
+	    NAX5_SEND_MIC_FRAME(mic_buf.buf);
 #endif
 		}
 		mic_buf.current_byte = bytes_read % mic_buf.size_bytes;
