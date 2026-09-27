@@ -435,6 +435,24 @@ static void test_path_summary()
     expect(empty.rtt_p50_ms < 0 && empty.jitter_ms < 0 && empty.lost == 3, "path summary with no replies");
 }
 
+static void test_path_fields()
+{
+    // Build 12 stream_sample keys must stay; build 14 adds p95/jitter and the home_* set.
+    QJsonObject metric;
+    nax5InsertPathFields(metric, QStringLiteral("vps"), nax5SummarizePath({10, 12, 11, 50}, 10, 1));
+    nax5InsertPathFields(metric, QStringLiteral("home"), nax5SummarizePath({30}, 10, 9));
+    const QStringList expected = {"home_lost", "home_rtt_max_ms", "home_rtt_p50_ms", "home_rtt_p95_ms", "home_sent",
+        "vps_jitter_ms", "vps_lost", "vps_rtt_max_ms", "vps_rtt_p50_ms", "vps_rtt_p95_ms", "vps_sent"};
+    expect(metric.keys() == expected, "path fields: vps_* and home_* keys");
+    expect(metric.value("vps_sent").toInt() == 10 && metric.value("vps_lost").toInt() == 1, "path fields: counts");
+    expect(near(metric.value("vps_rtt_p95_ms").toDouble(), 50) && near(metric.value("vps_jitter_ms").toDouble(), 14),
+        "path fields: p95 and jitter");
+    expect(!metric.contains("home_jitter_ms"), "path fields: no jitter from a single reply");
+    QJsonObject silent;
+    nax5InsertPathFields(silent, QStringLiteral("home"), nax5SummarizePath({}, 10, 10));
+    expect(silent.keys() == QStringList({"home_lost", "home_sent"}), "path fields: no RTT keys without replies");
+}
+
 // Mirror of ALLOWED_METADATA_KEYS additions in nax5-backend client_telemetry/schemas.py.
 static const QSet<QString> kBackendHealthKeys = {
     "window_s", "loss_max_pct", "frames_lost", "bitrate_min_kbps", "bitrate_p50_kbps", "render_dropped_max",
@@ -612,6 +630,7 @@ int main(int argc, char **argv)
     test_queue_recovery_and_sanitization();
     test_crash_dumps_are_queued_as_crash_parts();
     test_path_summary();
+    test_path_fields();
     test_session_totals_cover_whole_session();
     test_stream_health_window();
     test_telemetry_metadata_batch();

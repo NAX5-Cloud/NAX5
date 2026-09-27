@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QJsonObject>
 #include <QString>
 #include <QVector>
 #include <QtGlobal>
@@ -10,6 +11,8 @@
 // Sends a 32-byte datagram every 100 ms to the VPS echo service and records
 // per-second loss and RTT. The VPS is ~5 ms from the PS5's home line, so loss
 // here that the home agent does not see points at the player's ISP path.
+// Build 14 runs a second instance against the home agent next to the PS5
+// (router port forward kHomePort), measuring the player <-> home path itself.
 
 struct Nax5PathWindow
 {
@@ -26,10 +29,15 @@ struct Nax5PathWindow
 // Pure helper, unit-tested: summarize RTT samples (ms, in arrival order).
 Nax5PathWindow nax5SummarizePath(const QVector<double> &rtts_ms, int sent, int lost);
 
+// Adds <prefix>_sent/_lost and, when replies arrived, <prefix>_rtt_p50_ms/_rtt_p95_ms/
+// _rtt_max_ms/_jitter_ms to a stream_sample line (see nax5-backend docs/LOGS.md).
+void nax5InsertPathFields(QJsonObject &metric, const QString &prefix, const Nax5PathWindow &path);
+
 class Nax5PathProbe
 {
 public:
     static constexpr quint16 kDefaultPort = 40998;
+    static constexpr quint16 kHomePort = 40999;
     static constexpr int kIntervalMs = 100;
     static constexpr int kReplyTimeoutMs = 1000;
 

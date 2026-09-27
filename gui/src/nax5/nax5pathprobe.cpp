@@ -63,6 +63,19 @@ Nax5PathWindow nax5SummarizePath(const QVector<double> &rtts_ms, int sent, int l
     return out;
 }
 
+void nax5InsertPathFields(QJsonObject &metric, const QString &prefix, const Nax5PathWindow &path)
+{
+    metric.insert(prefix + QStringLiteral("_sent"), path.sent);
+    metric.insert(prefix + QStringLiteral("_lost"), path.lost);
+    if (path.rtt_p50_ms < 0)
+        return;
+    metric.insert(prefix + QStringLiteral("_rtt_p50_ms"), path.rtt_p50_ms);
+    metric.insert(prefix + QStringLiteral("_rtt_p95_ms"), path.rtt_p95_ms);
+    metric.insert(prefix + QStringLiteral("_rtt_max_ms"), path.rtt_max_ms);
+    if (path.jitter_ms >= 0)
+        metric.insert(prefix + QStringLiteral("_jitter_ms"), path.jitter_ms);
+}
+
 class Nax5PathProbe::Impl
 {
 public:

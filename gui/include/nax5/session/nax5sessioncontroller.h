@@ -158,6 +158,7 @@ private:
     QPointer<StreamSession> diagnostic_stream;
     Nax5NetworkDiagnostics network_diagnostics;
     Nax5PathProbe path_probe;
+    Nax5PathProbe home_probe;
     Nax5StreamHealth stream_health;
     Nax5SessionTotals session_totals;
     Nax5ApiClient *api;
