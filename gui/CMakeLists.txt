@@ -47,6 +47,8 @@ set(SOURCE_FILES
 	src/nax5/nax5runtime.cpp
 	include/nax5/nax5processlog.h
 	src/nax5/nax5processlog.cpp
+	include/nax5/nax5crashhandler.h
+	src/nax5/nax5crashhandler.cpp
 	include/nax5/nax5networkhint.h
 	src/nax5/nax5networkhint.cpp
 	include/nax5/nax5pathprobe.h

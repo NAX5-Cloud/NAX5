@@ -19,6 +19,7 @@ int main(int argc, char *argv[]) { return real_main(argc, argv); }
 #include <controllermanager.h>
 #include <discoverymanager.h>
 #include <qmlmainwindow.h>
+#include "nax5/nax5crashhandler.h"
 #include "nax5/nax5processlog.h"
 #include "nax5/nax5runtime.h"
 #include <QApplication>
@@ -79,6 +80,8 @@ int real_main(int argc, char *argv[])
 	QGuiApplication::setApplicationName(Nax5Runtime::settingsApplicationName());
 	QGuiApplication::setApplicationVersion(nax5ClientVersion());
 	QGuiApplication::setApplicationDisplayName("NAX5");
+	// Before any stream code runs: a crash anywhere later leaves a minidump for the next start.
+	nax5InstallCrashHandler(nax5CrashDumpDir());
 #if defined(Q_OS_MACOS)
 	qputenv("QT_MTL_NO_TRANSACTION", "1");
 #endif

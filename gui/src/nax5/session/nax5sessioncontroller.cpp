@@ -7,6 +7,7 @@
 #include "nax5/nax5apilane.h"
 #include "nax5/nax5authcontroller.h"
 #include "nax5/nax5clientreport.h"
+#include "nax5/nax5crashhandler.h"
 #include "nax5/nax5telemetry.h"
 #include "nax5/nax5processlog.h"
 #include "nax5/nax5runtime.h"
@@ -370,6 +371,7 @@ void Nax5SessionController::onAuthStateChanged()
             diagnostic_process_offset = QFileInfo(nax5ProcessLogPath()).size();
         }
         nax5RecoverReports(nax5ReportQueueRoot(), auth->userId(), diagnostic_report_id);
+        queueCrashDumps();
         flushPendingClientReport();
         syncCurrent();
         return;
@@ -544,7 +546,10 @@ void Nax5SessionController::play()
     if (!diagnostic_report_id.isEmpty() && !diagnostic_finalized)
         submitClientReport(Nax5ClientReportKindQuit);
     if (auth && auth->userId() > 0)
+    {
         nax5RecoverReports(nax5ReportQueueRoot(), auth->userId());
+        queueCrashDumps();
+    }
     diagnostic_report_id.clear();
     diagnostic_session_id.clear();
     diagnostic_finalized = false;
@@ -909,6 +914,15 @@ void Nax5SessionController::beginDiagnosticReport()
         {{nax5ProcessLogPath(), diagnostic_process_offset}});
     if (diagnostic_report_id.isEmpty())
         qCWarning(nax5SessionLog) << "cannot create durable diagnostic journal";
+}
+
+void Nax5SessionController::queueCrashDumps()
+{
+    if (!auth || auth->userId() <= 0) return;
+    const int queued = nax5QueueCrashDumps(nax5ReportQueueRoot(), auth->userId(), nax5CrashDumpDir(),
+        nax5BuildInfoText(buildInfoSnapshot()));
+    if (queued > 0)
+        qCWarning(nax5SessionLog) << "crash dumps queued for upload" << queued;
 }
 
 void Nax5SessionController::serviceDiagnosticQueue()

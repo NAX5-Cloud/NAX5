@@ -7,6 +7,7 @@
 #include "nax5/nax5streamhealth.h"
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QCoreApplication>
 #include <QTemporaryDir>
 #include <QFile>
@@ -313,6 +314,77 @@ static void test_queue_recovery_and_sanitization()
     expect(!nax5NextReportPart(root, 1).path.isEmpty(), "one ack does not erase remaining parts");
 }
 
+static void write_old_file(const QString &path, const QByteArray &data)
+{
+    QFile file(path);
+    expect(file.open(QIODevice::WriteOnly), "open crash fixture");
+    file.write(data);
+    file.close();
+    // Crash files younger than 5 s are treated as still being written.
+    expect(file.open(QIODevice::ReadWrite)
+        && file.setFileTime(QDateTime::currentDateTime().addSecs(-60), QFileDevice::FileModificationTime), "age crash fixture");
+    file.close();
+}
+
+static void test_crash_dumps_are_queued_as_crash_parts()
+{
+    QTemporaryDir dir;
+    const QString root = dir.filePath(QStringLiteral("queue"));
+    const QString dumps = dir.filePath(QStringLiteral("crash-dumps"));
+    expect(QDir().mkpath(dumps), "crash dump dir");
+    const QString play = nax5BeginReport(root, 7, QStringLiteral("session-crashed"), QStringLiteral("version=test\n"), {});
+    expect(!play.isEmpty(), "play journal before crash");
+    {
+        // The play started two minutes before the crash fixtures below.
+        QFile journal(QDir(root).filePath(play + QStringLiteral(".journal")));
+        expect(journal.open(QIODevice::ReadOnly), "read play journal");
+        auto object = QJsonDocument::fromJson(journal.readAll()).object();
+        journal.close();
+        object.insert("created_utc", QDateTime::currentDateTimeUtc().addSecs(-120).toString(Qt::ISODateWithMs));
+        expect(journal.open(QIODevice::WriteOnly | QIODevice::Truncate)
+            && journal.write(QJsonDocument(object).toJson(QJsonDocument::Compact)) > 0, "backdate play journal");
+        journal.close();
+    }
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190321-4242.dmp")), QByteArray("MDMP") + QByteArray(4096, '\x01'));
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190321-4242.txt")),
+        "reason=unhandled_exception\nexception_code=0xC0000005\nfault_module=C:\\NAX5\\chiaki.exe\nfault_offset=0x1234\n");
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190500-4243.dmp")), QByteArray(3 * 1024 * 1024, '\x02'));
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190500-4243.txt")), "reason=abort\n");
+    // WER LocalDumps copy of the crash already captured in-app (pid 4242) and a WER-only crash.
+    write_old_file(QDir(dumps).filePath(QStringLiteral("chiaki.exe.4242.dmp")), QByteArray("MDMP-wer-duplicate"));
+    write_old_file(QDir(dumps).filePath(QStringLiteral("chiaki.exe.999.dmp")), QByteArray("MDMP-wer-only"));
+
+    expect(nax5QueueCrashDumps(root, 7, dumps, QStringLiteral("client_version=testver\n")) == 3,
+        "in-app crashes and WER-only crash queued, WER duplicate dropped");
+    expect(QDir(dumps).entryList(QDir::Files).isEmpty(), "queued crash files removed from disk");
+
+    int with_dump = 0, summary_only = 0, wer_only = 0;
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto part = nax5NextReportPart(root, 7);
+        expect(!part.path.isEmpty(), "crash part available for upload");
+        expect(part.kind == QStringLiteral("crash"), "crash part uses crash kind");
+        expect(part.session_id == QStringLiteral("session-crashed"), "crash attributed to the play that was running");
+        expect(part.archive.size() <= nax5ClientReportMaxArchiveBytes(), "crash part fits upload cap");
+        expect(!part.archive.contains("MDMP-wer-duplicate"), "WER duplicate never uploaded");
+        if (part.archive.contains("chiaki.exe.999.dmp"))
+            ++wer_only;
+        else if (part.archive.contains("NAX5-20260926-190321-4242.dmp"))
+        {
+            expect(part.archive.contains("fault_module=") && part.archive.contains("0xC0000005"), "summary travels with dump");
+            ++with_dump;
+        }
+        else
+        {
+            expect(part.archive.contains("too_large") && part.archive.contains("reason=abort"), "oversized dump keeps summary");
+            ++summary_only;
+        }
+        expect(nax5AcknowledgeReportPart(part), "ack crash part");
+    }
+    expect(with_dump == 1 && summary_only == 1 && wer_only == 1, "one dump shipped, one reduced to summary, one WER dump shipped");
+    expect(nax5QueueCrashDumps(root, 7, dumps, QString()) == 0, "nothing queued twice");
+}
+
 static void test_live_report_queue_batches_small_appends()
 {
     QTemporaryDir dir;
@@ -519,6 +591,7 @@ int main(int argc, char **argv)
     test_full_session_is_not_silently_truncated();
     test_live_report_queue_batches_small_appends();
     test_queue_recovery_and_sanitization();
+    test_crash_dumps_are_queued_as_crash_parts();
     test_path_summary();
     test_stream_health_window();
     test_telemetry_metadata_batch();

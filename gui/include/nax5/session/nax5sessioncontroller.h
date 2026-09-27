@@ -144,6 +144,7 @@ private:
     void sampleStreamStats();
     void onDiagnosticTick();
     void beginDiagnosticReport();
+    void queueCrashDumps();
     void serviceDiagnosticQueue();
     Nax5BuildInfoSnapshot buildInfoSnapshot();
     bool streamSessionAlive() const;
