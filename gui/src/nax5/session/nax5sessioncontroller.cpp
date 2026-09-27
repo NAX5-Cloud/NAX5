@@ -167,6 +167,7 @@ Nax5SessionController::~Nax5SessionController()
 {
     network_diagnostics.stop();
     path_probe.stop();
+    home_probe.stop();
     report_queue_timer->stop();
     report_worker->quit();
     report_worker->wait();
@@ -439,16 +440,9 @@ void Nax5SessionController::sampleStreamStats()
             metric.insert("renderer_backend_enum", backend->qmlWindow()->runtimeRendererBackend());
         }
         if (path_probe.running())
-        {
-            const Nax5PathWindow path = path_probe.window(1);
-            metric.insert("vps_sent", path.sent);
-            metric.insert("vps_lost", path.lost);
-            if (path.rtt_p50_ms >= 0)
-            {
-                metric.insert("vps_rtt_p50_ms", path.rtt_p50_ms);
-                metric.insert("vps_rtt_max_ms", path.rtt_max_ms);
-            }
-        }
+            nax5InsertPathFields(metric, QStringLiteral("vps"), path_probe.window(1));
+        if (home_probe.running())
+            nax5InsertPathFields(metric, QStringLiteral("home"), home_probe.window(1));
         nax5ProcessLogWrite("nax5.metrics", QString::fromUtf8(QJsonDocument(metric).toJson(QJsonDocument::Compact)));
     }
 }
@@ -567,6 +561,7 @@ void Nax5SessionController::play()
     diagnostic_timer->stop();
     network_diagnostics.stop();
     path_probe.stop();
+    home_probe.stop();
     diagnostic_clock.invalidate();
     diagnostic_duration_ms = 0;
     diagnostic_last_sample_ms = 0;
@@ -1311,7 +1306,11 @@ void Nax5SessionController::onStreamFirstFrame()
     network_diagnostics.start(diagnostic_session_id);
     stream_health.reset();
     if (!isOperatorTest())
+    {
         path_probe.start(Nax5ApiConfig::baseUrl().host(), Nax5PathProbe::kDefaultPort);
+        // Same probe towards the home agent next to the PS5, through the router's port forward.
+        home_probe.start(material.host, Nax5PathProbe::kHomePort);
+    }
     diagnostic_timer->start();
     sampleStreamStats();
     qCInfo(nax5SessionLog) << "first decoded frame, posting connected";
@@ -1374,6 +1373,7 @@ void Nax5SessionController::onStreamQuit(ChiakiQuitReason reason, const QString 
     if (sender() && diagnostic_stream && sender() != diagnostic_stream.data()) return;
     network_diagnostics.stop();
     path_probe.stop();
+    home_probe.stop();
     sampleStreamStats();
     if (diagnostic_clock.isValid()) diagnostic_duration_ms = diagnostic_clock.elapsed();
     diagnostic_clock.invalidate();

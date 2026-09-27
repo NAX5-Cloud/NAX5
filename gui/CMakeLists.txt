@@ -345,7 +345,7 @@ if(CHIAKI_ENABLE_TESTS)
 	target_include_directories(nax5-integration PRIVATE include ${CMAKE_SOURCE_DIR}/lib/include)
 	target_compile_definitions(nax5-integration PRIVATE
 		CHIAKI_VERSION="1.10.0"
-		NAX5_VERSION="alpha-0.5-build-13"
+		NAX5_VERSION="alpha-0.5-build-14"
 		NAX5_CLIENT_SHA="integration"
 	)
 	target_link_libraries(nax5-integration Qt::Core Qt::Network)
