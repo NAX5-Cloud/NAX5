@@ -12,6 +12,7 @@
 #include "nax5/nax5processlog.h"
 #include "nax5/nax5runtime.h"
 #include "nax5/session/nax5sessionparser.h"
+#include "controllermanager.h"
 #include "qmlbackend.h"
 #include "qmlmainwindow.h"
 #include "settings.h"
@@ -125,6 +126,9 @@ Nax5SessionController::Nax5SessionController(Nax5AuthController *auth, QmlBacken
     connect(api, &Nax5ApiClient::connectionFinished, this, &Nax5SessionController::onConnectionFinished);
     connect(api, &Nax5ApiClient::connectedFinished, this, &Nax5SessionController::onConnectedFinished);
     connect(api, &Nax5ApiClient::heartbeatFinished, this, &Nax5SessionController::onHeartbeatFinished);
+    // Any gamepad button, stick or touchpad event: lets the logs tell an AFK player
+    // from a playing one (input_idle_s in stream_sample).
+    connect(ControllerManager::GetInstance(), &ControllerManager::ControllerMoved, this, [this]() { last_input_clock.start(); });
     connect(api, &Nax5ApiClient::failFinished, this, &Nax5SessionController::onFailFinished);
     connect(api, &Nax5ApiClient::endFinished, this, &Nax5SessionController::onEndFinished);
     connect(api, &Nax5ApiClient::clientReportFinished, this, &Nax5SessionController::onClientReportFinished);
@@ -430,6 +434,8 @@ void Nax5SessionController::sampleStreamStats()
             {"packet_loss_rolling_fraction", last_avg_packet_loss},
             {"frames_lost_total", last_frames_lost}, {"render_dropped_recent_1s", last_dropped_frames},
             {"measured_bitrate_kbps", double(last_measured_bitrate_kbps)}};
+        // Seconds since the last gamepad input in this stream (counted from the first frame).
+        metric.insert("input_idle_s", last_input_clock.isValid() ? double(last_input_clock.elapsed() / 1000) : -1.0);
         metric.insert("ps5_path_rtt_ms", session->GetInitialRttUs() / 1000.0);
         metric.insert("ps5_path_mtu_in", double(session->GetMtuIn()));
         metric.insert("ps5_path_mtu_out", double(session->GetMtuOut()));
@@ -1320,6 +1326,7 @@ void Nax5SessionController::onStreamFirstFrame()
     diagnostic_stream_connected = true;
     stream_connected_at = QDateTime::currentDateTime();
     diagnostic_clock.start();
+    last_input_clock.start();
     network_diagnostics.start(diagnostic_session_id);
     stream_health.reset();
     if (!isOperatorTest())

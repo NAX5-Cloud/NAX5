@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) { return real_main(argc, argv); }
 #endif
 #include "nax5/nax5processlog.h"
 #include "nax5/nax5runtime.h"
+#include "nax5/nax5singleinstance.h"
 #include <QApplication>
 #include <QtTypes>
 
@@ -208,7 +209,12 @@ int real_main(int argc, char *argv[])
 	}
 #endif
 	if(args.length() == 0)
+	{
+		// Product players get one client; a second launch brings the first one forward.
+		if(!Nax5Runtime::operatorMode() && !nax5AcquireSingleInstance(nax5SingleInstanceName()))
+			return 0;
 		return RunMain(app, use_alt_settings ? &alt_settings : &settings, exit_app_on_stream_exit);
+	}
 
 	if(args[0] == "list")
 	{

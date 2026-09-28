@@ -183,6 +183,7 @@ private:
     Nax5QueuedReportPart uploading_part;
     QElapsedTimer diagnostic_clock;
     QElapsedTimer last_frame_clock;
+    QElapsedTimer last_input_clock;
     qint64 diagnostic_duration_ms = 0;
     qint64 diagnostic_last_sample_ms = 0;
     Nax5GameSessionState session_state;
