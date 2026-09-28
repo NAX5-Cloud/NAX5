@@ -128,6 +128,8 @@ private:
     void onStreamQuit(ChiakiQuitReason reason, const QString &reason_str);
     void reportFail();
     void reportEnd();
+    void endSessionClosedByBackend();
+    void stopStalledStream();
     void dispatchTerminal(Nax5TerminalMutation mutation, bool silent);
     void sendPendingTerminal();
     void handleTerminalFinished(quint64 request_id, const Nax5SessionParseResult &result, Nax5TerminalMutation mutation);
@@ -180,6 +182,7 @@ private:
     bool diagnostic_stream_connected = false;
     Nax5QueuedReportPart uploading_part;
     QElapsedTimer diagnostic_clock;
+    QElapsedTimer last_frame_clock;
     qint64 diagnostic_duration_ms = 0;
     qint64 diagnostic_last_sample_ms = 0;
     Nax5GameSessionState session_state;
@@ -207,6 +210,7 @@ private:
     bool ignore_cancel_result;
     bool stream_was_connected;
     bool stream_first_frame_seen;
+    bool stream_stalled = false;
     bool operator_test_active;
     bool shutdown_started;
     bool awaiting_abort_current;

@@ -32,6 +32,13 @@ int nax5TerminalRetryDelayMs(int attempt);
 // Pause before chiaki re-requests a Remote Play session that failed to start
 // (e.g. the console is still releasing the previous one: "Remote is already in use").
 int nax5StreamRetryDelayMs(qint64 elapsed_since_first_attempt_ms);
+// A console that enters rest mode or drops off the network can stop streaming
+// without a disconnect; chiaki then keeps the session open forever. The product
+// ends a started stream once no frame has been decoded for this long.
+int nax5StreamStallTimeoutMs();
+bool nax5StreamStalled(bool first_frame_seen, qint64 ms_since_last_frame);
+// Heartbeat answer meaning the backend already ended the session (admin, expiry).
+bool nax5HeartbeatSessionClosed(Nax5SessionError error);
 int nax5ShutdownGraceMs();
 int nax5ShutdownReportGraceMs();
 bool nax5MaySleepConsole(bool operator_mode);

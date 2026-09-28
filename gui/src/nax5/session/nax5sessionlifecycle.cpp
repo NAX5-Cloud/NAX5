@@ -106,6 +106,22 @@ int nax5TerminalRetryDelayMs(int attempt)
     return 300 * qBound(1, attempt, 4);
 }
 
+int nax5StreamStallTimeoutMs()
+{
+    // A live PS5 stream decodes ~60 frames/s even on a static screen.
+    return 60 * 1000;
+}
+
+bool nax5StreamStalled(bool first_frame_seen, qint64 ms_since_last_frame)
+{
+    return first_frame_seen && ms_since_last_frame > nax5StreamStallTimeoutMs();
+}
+
+bool nax5HeartbeatSessionClosed(Nax5SessionError error)
+{
+    return error == Nax5SessionErrorNotFound;
+}
+
 int nax5ShutdownGraceMs()
 {
     return 400;

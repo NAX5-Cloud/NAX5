@@ -335,6 +335,17 @@ static void test_connected_flag_resets_on_new_play()
     expect(!nax5ShouldRetryMarkConnected(Nax5GameSessionStateActive, false, Nax5SessionErrorNotFound), "expired session is not retried");
 }
 
+static void test_stream_stall_and_backend_close()
+{
+    expect(!nax5StreamStalled(false, 10 * 60 * 1000), "no stall before the first frame");
+    expect(!nax5StreamStalled(true, 1000), "live stream is not stalled");
+    expect(!nax5StreamStalled(true, nax5StreamStallTimeoutMs()), "stall needs more than the timeout");
+    expect(nax5StreamStalled(true, nax5StreamStallTimeoutMs() + 1), "silent console is stalled");
+    expect(nax5HeartbeatSessionClosed(Nax5SessionErrorNotFound), "404 heartbeat means closed by backend");
+    expect(!nax5HeartbeatSessionClosed(Nax5SessionErrorNetworkError), "network error keeps retrying");
+    expect(!nax5HeartbeatSessionClosed(Nax5SessionErrorServerError), "5xx keeps retrying");
+}
+
 static void test_product_wakeup_from_material_once()
 {
     expect(nax5ProductShouldWakeupBeforeCreateSession(), "product wakes before createSession");
@@ -412,6 +423,7 @@ int main()
     test_product_operator_parity();
     test_connected_flag_resets_on_new_play();
     test_product_wakeup_from_material_once();
+    test_stream_stall_and_backend_close();
     test_shutdown_lifetime_qpointer();
     if (g_failed)
     {
