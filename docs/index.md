@@ -1,10 +1,10 @@
 # NAX5 Product Getting Started
 
-NAX5 Alpha 0.5 build 3 is a Windows x64 client for accessing an assigned shared PS5 through the NAX5 service.
+NAX5 is a Windows x64 client for accessing an assigned shared PS5 through the NAX5 service.
 
 ## Windows Alpha 0.5
 
-1. Download [`NAX5-windows.zip`](https://github.com/alex1isupov-debug/NAX5/releases/download/alpha-0.5-build-4/NAX5-windows.zip) from release `alpha-0.5-build-4`.
+1. Download [`NAX5-windows.zip`](https://github.com/NAX5-Cloud/NAX5/releases/latest/download/NAX5-windows.zip) from the [latest release](https://github.com/NAX5-Cloud/NAX5/releases/latest).
 2. Extract the ZIP and run its single file, `NAX5.exe`.
 3. Complete the installer, start NAX5 from the Start menu, and sign in with your cloudgta6.com account.
 4. Confirm your email and wait until your access status is **ACTIVE**.
