@@ -47,6 +47,8 @@ set(SOURCE_FILES
 	src/nax5/nax5runtime.cpp
 	include/nax5/nax5processlog.h
 	src/nax5/nax5processlog.cpp
+	include/nax5/nax5crashhandler.h
+	src/nax5/nax5crashhandler.cpp
 	include/nax5/nax5networkhint.h
 	src/nax5/nax5networkhint.cpp
 	include/nax5/nax5pathprobe.h
@@ -179,6 +181,14 @@ target_link_libraries(placebo-libav-impl PkgConfig::LIBPLACEBO FFMPEG::avcodec F
 target_link_libraries(chiaki PkgConfig::LIBPLACEBO placebo-libav-impl)
 
 target_link_libraries(chiaki chiaki-lib)
+
+# Test-only stream replay (recorded media instead of a PS5). Never enable for
+# product packages; release scripts configure with -DNAX5_STREAM_REPLAY=OFF.
+option(NAX5_STREAM_REPLAY "Build chiaki with the recorded-media stream replay test mode" OFF)
+if(NAX5_STREAM_REPLAY)
+	target_sources(chiaki PRIVATE include/nax5/nax5streamreplay.h src/nax5/nax5streamreplay.cpp)
+	target_compile_definitions(chiaki PRIVATE NAX5_STREAM_REPLAY)
+endif()
 if(CHIAKI_ENABLE_CLI)
 	add_definitions(-DCHIAKI_ENABLE_CLI)
 	target_link_libraries(chiaki chiaki-cli-lib)
@@ -309,4 +319,37 @@ if(CHIAKI_ENABLE_TESTS)
 		target_link_libraries(nax5-telemetry-unit iphlpapi ws2_32 wlanapi)
 	endif()
 	add_test(NAME nax5-telemetry COMMAND nax5-telemetry-unit)
+
+	# Needs a live local backend: scripts/tests/integration/run-backend-integration.ps1.
+	# Built with the unit tests but not registered with ctest.
+	add_executable(nax5-integration
+		src/nax5/nax5runtime.cpp
+		src/nax5/nax5installationid.cpp
+		src/nax5/nax5processlog.cpp
+		src/nax5/nax5networkhint.cpp
+		src/nax5/nax5clientreport.cpp
+		src/nax5/nax5reportqueue.cpp
+		src/nax5/nax5telemetry.cpp
+		src/nax5/nax5apiconfig.cpp
+		src/nax5/nax5apilane.cpp
+		include/nax5/nax5apiclient.h
+		src/nax5/nax5apiclient.cpp
+		src/nax5/nax5autherror.cpp
+		src/nax5/nax5authparser.cpp
+		src/nax5/session/nax5sessionerror.cpp
+		src/nax5/session/nax5sessionparser.cpp
+		src/nax5/connection/nax5connectionmaterial.cpp
+		src/nax5/connection/nax5connectionparser.cpp
+		src/nax5/nax5integration_test.cpp
+	)
+	target_include_directories(nax5-integration PRIVATE include ${CMAKE_SOURCE_DIR}/lib/include)
+	target_compile_definitions(nax5-integration PRIVATE
+		CHIAKI_VERSION="1.10.0"
+		NAX5_VERSION="alpha-0.5-build-13"
+		NAX5_CLIENT_SHA="integration"
+	)
+	target_link_libraries(nax5-integration Qt::Core Qt::Network)
+	if(WIN32)
+		target_link_libraries(nax5-integration iphlpapi ws2_32 wlanapi)
+	endif()
 endif()

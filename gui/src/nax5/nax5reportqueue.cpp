@@ -12,6 +12,7 @@
 #include <QSaveFile>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QSet>
 #include <QUuid>
 
 namespace {
@@ -247,6 +248,97 @@ Nax5QueuedReportPart nax5NextReportPart(const QString &root, qint64 owner)
             object.value("client_version").toString(), object.value("client_sha").toString()};
     }
     return {};
+}
+
+int nax5QueueCrashDumps(const QString &root, qint64 owner, const QString &dump_dir, const QString &build_info)
+{
+    QMutexLocker lock(&queue_mutex);
+    if (root.isEmpty() || owner <= 0 || dump_dir.isEmpty() || !QDir().mkpath(root)) return 0;
+    QDir dir(dump_dir);
+    if (!dir.exists()) return 0;
+
+    // Attribute each crash to the latest play journal that started before it.
+    QList<QPair<QDateTime, QString>> plays;
+    for (const auto &name : QDir(root).entryList({QStringLiteral("*.journal")}, QDir::Files))
+    {
+        const auto journal = readObject(QDir(root).filePath(name));
+        if (journal.value("owner").toDouble() != owner) continue;
+        plays.append({QDateTime::fromString(journal.value("created_utc").toString(), Qt::ISODateWithMs),
+            journal.value("session_id").toString()});
+    }
+
+    int queued = 0;
+    const auto dumps = dir.entryInfoList({QStringLiteral("*.dmp"), QStringLiteral("*.txt")}, QDir::Files, QDir::Time | QDir::Reversed);
+    QStringList bases;
+    for (const auto &info : dumps)
+        if (!bases.contains(info.completeBaseName())) bases.append(info.completeBaseName());
+    // WER LocalDumps names its file "<exe>.<pid>.dmp"; drop it when the in-app
+    // handler already captured the same process ("NAX5-<utc>-<pid>").
+    QSet<QString> handled_pids;
+    for (const auto &base : bases)
+        if (base.startsWith(QStringLiteral("NAX5-"))) handled_pids.insert(base.section(QLatin1Char('-'), -1));
+    for (const auto &base : bases)
+    {
+        if (!base.startsWith(QStringLiteral("NAX5-")) && handled_pids.contains(base.section(QLatin1Char('.'), -1)))
+        {
+            QFile::remove(dir.filePath(base + QStringLiteral(".dmp")));
+            continue;
+        }
+        const QString dump_path = dir.filePath(base + QStringLiteral(".dmp"));
+        const QString summary_path = dir.filePath(base + QStringLiteral(".txt"));
+        const QFileInfo marker(QFile::exists(dump_path) ? dump_path : summary_path);
+        // Skip files a crashing process may still be writing.
+        if (marker.lastModified().secsTo(QDateTime::currentDateTime()) < 5) continue;
+
+        QByteArray dump, summary;
+        if (QFile file(dump_path); file.open(QIODevice::ReadOnly)) dump = file.readAll();
+        if (QFile file(summary_path); file.open(QIODevice::ReadOnly)) summary = file.read(64 * 1024);
+
+        QString session_id;
+        QDateTime best;
+        const QDateTime crashed_at = marker.lastModified().toUTC();
+        for (const auto &play : plays)
+            if (play.first.isValid() && play.first <= crashed_at && (!best.isValid() || play.first > best))
+            {
+                best = play.first;
+                session_id = play.second;
+            }
+
+        const QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QJsonObject manifest{{"schema", 2}, {"report_id", id}, {"part_id", id + QStringLiteral("-00000000")},
+            {"sequence", 0}, {"session_id", session_id}, {"created_utc", now()}, {"final", true},
+            {"crash_dump", base}, {"dump_bytes", double(dump.size())},
+            {"crash_utc", crashed_at.toString(Qt::ISODate)}};
+        QList<QPair<QString, QByteArray>> files{
+            {QStringLiteral("BUILD-INFO"), build_info.toUtf8()},
+            {QStringLiteral("crash-summary.txt"), summary}};
+        QByteArray zip;
+        if (!dump.isEmpty())
+        {
+            manifest.insert("sha256", QString::fromLatin1(QCryptographicHash::hash(dump, QCryptographicHash::Sha256).toHex()));
+            auto with_dump = files;
+            with_dump.prepend({QStringLiteral("MANIFEST.json"), QJsonDocument(manifest).toJson(QJsonDocument::Compact)});
+            with_dump.append({base + QStringLiteral(".dmp"), dump});
+            zip = nax5ZipBytes(with_dump);
+        }
+        if (zip.isEmpty() || zip.size() > nax5ClientReportMaxArchiveBytes())
+        {
+            // Never drop the crash: the summary alone still names the faulting module.
+            manifest.insert("dump_omitted", dump.isEmpty() ? QStringLiteral("missing") : QStringLiteral("too_large"));
+            files.prepend({QStringLiteral("MANIFEST.json"), QJsonDocument(manifest).toJson(QJsonDocument::Compact)});
+            zip = nax5ZipBytes(files);
+        }
+        if (zip.size() > nax5ClientReportMaxArchiveBytes()) continue;
+
+        const QJsonObject envelope{{"owner", double(owner)}, {"session_id", session_id}, {"report_id", id},
+            {"sequence", 0}, {"client_version", nax5ClientVersion()}, {"client_sha", nax5ClientSha()},
+            {"kind", "crash"}, {"archive", QString::fromLatin1(zip.toBase64())}};
+        if (!saveObject(QDir(root).filePath(id + QStringLiteral("-00000000.part")), envelope)) break;
+        QFile::remove(dump_path);
+        QFile::remove(summary_path);
+        ++queued;
+    }
+    return queued;
 }
 
 bool nax5AcknowledgeReportPart(const Nax5QueuedReportPart &part)

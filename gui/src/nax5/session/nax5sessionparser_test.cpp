@@ -10,6 +10,9 @@
 #include <QPointer>
 #include <QString>
 #include <QByteArray>
+#include <QDateTime>
+#include <QSettings>
+#include <QTemporaryDir>
 #include <cstdio>
 
 static int g_failed = 0;
@@ -233,6 +236,10 @@ static void test_shutdown_and_stale_lifecycle()
     expect(nax5TerminalShouldRetry(Nax5SessionErrorNetworkError), "terminal retries network errors");
     expect(!nax5TerminalShouldRetry(Nax5SessionErrorNotFound), "terminal does not retry 404");
     expect(!nax5TerminalShouldRetry(Nax5SessionErrorUnauthenticated), "terminal does not retry 401");
+    // Upstream passed SESSION_RETRY_SECONDS / 3 (6) to a millisecond timer: 150 requests in 2 s.
+    expect(nax5StreamRetryDelayMs(0) >= 250, "stream retry waits at least 250 ms");
+    expect(nax5StreamRetryDelayMs(10000) >= 500 && nax5StreamRetryDelayMs(10000) <= 2000, "later stream retries about once a second");
+    expect(20000 / nax5StreamRetryDelayMs(0) <= 40, "at most ~40 session requests in the 20 s retry window");
     expect(nax5TerminalRetryDelayMs(1) > 0 && nax5TerminalRetryDelayMs(9) <= 1200, "bounded retry delay");
     expect(nax5ShutdownGraceMs() > 0 && nax5ShutdownGraceMs() <= 1000, "short shutdown window");
     expect(nax5ShutdownReportGraceMs() >= 5000 && nax5ShutdownReportGraceMs() <= 15000, "report upload shutdown window");
@@ -358,8 +365,33 @@ static void test_shutdown_lifetime_qpointer()
     expect(dependency_ptr.isNull(), "dependency destroyed with owner");
 }
 
+static void test_persisted_terminal_roundtrip()
+{
+    QTemporaryDir dir;
+    QSettings settings(dir.filePath(QStringLiteral("t.ini")), QSettings::IniFormat);
+    expect(nax5LoadTerminal(settings, 7).mutation == Nax5TerminalMutationNone, "nothing stored at first");
+
+    nax5SaveTerminal(settings, {7, QStringLiteral("session-1"), Nax5TerminalMutationEnd, QString()});
+    const auto loaded = nax5LoadTerminal(settings, 7);
+    expect(loaded.mutation == Nax5TerminalMutationEnd && loaded.session_id == QStringLiteral("session-1"),
+        "unacknowledged /end/ survives a restart");
+    expect(nax5LoadTerminal(settings, 8).mutation == Nax5TerminalMutationNone, "another account never resends it");
+
+    nax5SaveTerminal(settings, {7, QStringLiteral("session-2"), Nax5TerminalMutationFail, QString()});
+    nax5ClearTerminal(settings, QStringLiteral("session-1"));
+    expect(nax5LoadTerminal(settings, 7).session_id == QStringLiteral("session-2"),
+        "late answer for an older session keeps the newer record");
+    nax5ClearTerminal(settings, QStringLiteral("session-2"));
+    expect(nax5LoadTerminal(settings, 7).mutation == Nax5TerminalMutationNone, "final answer clears the record");
+
+    nax5SaveTerminal(settings, {7, QStringLiteral("session-3"), Nax5TerminalMutationEnd,
+        QDateTime::currentDateTimeUtc().addDays(-2).toString(Qt::ISODate)});
+    expect(nax5LoadTerminal(settings, 7).mutation == Nax5TerminalMutationNone, "records older than a day are ignored");
+}
+
 int main()
 {
+    test_persisted_terminal_roundtrip();
     test_reserve_success();
     test_no_capacity();
     test_eligibility_denied();

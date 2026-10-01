@@ -1,5 +1,7 @@
 #include "nax5/session/nax5sessionlifecycle.h"
 
+#include <QDateTime>
+#include <QSettings>
 #include <QString>
 #include <QStringList>
 
@@ -90,6 +92,13 @@ int nax5TerminalRetryLimit()
 bool nax5TerminalShouldRetry(Nax5SessionError error)
 {
     return error == Nax5SessionErrorNetworkError || error == Nax5SessionErrorServerError;
+}
+
+int nax5StreamRetryDelayMs(qint64 elapsed_since_first_attempt_ms)
+{
+    // The console usually frees its previous session within a few seconds:
+    // retry twice a second at first, then once a second.
+    return elapsed_since_first_attempt_ms < 3000 ? 500 : 1000;
 }
 
 int nax5TerminalRetryDelayMs(int attempt)
@@ -202,4 +211,50 @@ Nax5MaterialWakeup nax5MaterialWakeupCall(const QString &host, const QByteArray 
     call.ps5 = ps5;
     call.ready = !call.host.isEmpty() && !call.regist_key.isEmpty();
     return call;
+}
+
+namespace {
+const char *kTerminalGroup = "nax5/pending_terminal";
+}
+
+void nax5SaveTerminal(QSettings &settings, const Nax5PersistedTerminal &terminal)
+{
+    if (terminal.owner <= 0 || terminal.session_id.isEmpty() || terminal.mutation == Nax5TerminalMutationNone)
+        return;
+    settings.beginGroup(QString::fromLatin1(kTerminalGroup));
+    settings.setValue(QStringLiteral("owner"), terminal.owner);
+    settings.setValue(QStringLiteral("session_id"), terminal.session_id);
+    settings.setValue(QStringLiteral("mutation"), static_cast<int>(terminal.mutation));
+    settings.setValue(QStringLiteral("saved_utc"), terminal.saved_utc.isEmpty()
+        ? QDateTime::currentDateTimeUtc().toString(Qt::ISODate) : terminal.saved_utc);
+    settings.endGroup();
+    settings.sync();
+}
+
+Nax5PersistedTerminal nax5LoadTerminal(QSettings &settings, qint64 owner)
+{
+    Nax5PersistedTerminal out;
+    settings.beginGroup(QString::fromLatin1(kTerminalGroup));
+    out.owner = settings.value(QStringLiteral("owner")).toLongLong();
+    out.session_id = settings.value(QStringLiteral("session_id")).toString();
+    const int mutation = settings.value(QStringLiteral("mutation")).toInt();
+    out.saved_utc = settings.value(QStringLiteral("saved_utc")).toString();
+    settings.endGroup();
+    const QDateTime saved = QDateTime::fromString(out.saved_utc, Qt::ISODate);
+    const bool known = mutation == Nax5TerminalMutationCancel || mutation == Nax5TerminalMutationFail
+        || mutation == Nax5TerminalMutationEnd;
+    if (owner <= 0 || out.owner != owner || out.session_id.isEmpty() || !known || !saved.isValid()
+        || saved.secsTo(QDateTime::currentDateTimeUtc()) > 24 * 3600)
+        return {};
+    out.mutation = static_cast<Nax5TerminalMutation>(mutation);
+    return out;
+}
+
+void nax5ClearTerminal(QSettings &settings, const QString &session_id)
+{
+    settings.beginGroup(QString::fromLatin1(kTerminalGroup));
+    if (settings.value(QStringLiteral("session_id")).toString() == session_id)
+        settings.remove(QString());
+    settings.endGroup();
+    settings.sync();
 }

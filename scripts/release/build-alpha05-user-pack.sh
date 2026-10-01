@@ -89,7 +89,8 @@ fi
 cmake -S "$ROOT" -B "$BUILD" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCHIAKI_ENABLE_CLI=OFF \
-  -DCHIAKI_ENABLE_TESTS=ON
+  -DCHIAKI_ENABLE_TESTS=ON \
+  -DNAX5_STREAM_REPLAY=OFF
 
 echo "building chiaki..."
 cmake --build "$BUILD" --config Release --target chiaki

@@ -94,6 +94,7 @@ private:
         quint64 request_id;
         int attempts;
         bool silent;
+        bool resumed = false;  // resent from the write-ahead record at login
     };
 
     void setState(Nax5GameSessionState next);
@@ -131,6 +132,7 @@ private:
     void sendPendingTerminal();
     void handleTerminalFinished(quint64 request_id, const Nax5SessionParseResult &result, Nax5TerminalMutation mutation);
     bool retryTerminalIfNeeded(const Nax5SessionParseResult &result);
+    bool resumePersistedTerminal();
     bool logoutIfUnauthenticated(Nax5SessionError error);
     void finishUnauthLogout();
     void abortReserveAndSyncCurrent();
@@ -144,6 +146,7 @@ private:
     void sampleStreamStats();
     void onDiagnosticTick();
     void beginDiagnosticReport();
+    void queueCrashDumps();
     void serviceDiagnosticQueue();
     Nax5BuildInfoSnapshot buildInfoSnapshot();
     bool streamSessionAlive() const;
@@ -156,6 +159,7 @@ private:
     Nax5NetworkDiagnostics network_diagnostics;
     Nax5PathProbe path_probe;
     Nax5StreamHealth stream_health;
+    Nax5SessionTotals session_totals;
     Nax5ApiClient *api;
     QTimer *lease_timer;
     QTimer *heartbeat_timer;

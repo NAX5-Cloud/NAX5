@@ -31,6 +31,8 @@ Permanent NAX5 test register. Status is automated unless marked Manual. Current 
 | Secret provider atomic replace | Automated | Backend | n/a | | Implemented | filesystem provider |
 | Django accounts/waitlist/consoles/sessions | Automated | Backend | n/a | | Run against PostgreSQL | never SQLite |
 | Allocator concurrency | Automated | Backend | n/a | | Existing Task 3 suite | |
+| Stream replay matrix (decoders, codecs incl. HDR, mic/echo, loss, corruption, jitter, stall) | Automated | NAX5 | n/a | | 17/17 PASS 2026-09-27 | `scripts/tests/stream-replay/`; needs `-DNAX5_STREAM_REPLAY=ON` build; Vulkan decoder only where available |
+| Client <-> backend integration (login, reserve/idempotency, NO_CAPACITY + 5 s backoff, connection material, heartbeat, end/retry, network drop -> lease expiry, events, crash-dump report, update-required) | Automated | Both | LAN | | 32/32 PASS 2026-09-27 | `scripts/tests/integration/run-backend-integration.ps1`; local backend + PostgreSQL 55433 |
 | Launcher Qt offscreen smoke | Automated | NAX5 | n/a | | Limited | requires packaged `chiaki.exe` + Qt offscreen |
 | Operator physical PIN + READY | Manual | Both | LAN | | **STOP here** | do not simulate PS5 |
 | Product 0 registered hosts automatic play | Manual | NAX5 | LAN/WAN | | **NOT TESTED** | Alpha 0.5 user pack |

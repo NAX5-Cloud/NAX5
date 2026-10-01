@@ -206,10 +206,10 @@ QString nax5BuildInfoText(const Nax5BuildInfoSnapshot &snapshot)
     else
         text += QStringLiteral("avg_packet_loss=\n");
     text += QStringLiteral("max_packet_loss=%1\n").arg(snapshot.max_packet_loss);
-    text += QStringLiteral("packet_loss_semantics=rolling_fraction_approximately_2_seconds_not_session_average\n");
+    text += QStringLiteral("packet_loss_semantics=session_mean_of_1hz_rolling_2s_fractions\n");
     text += QStringLiteral("max_packet_loss_semantics=max_observed_rolling_sample_not_all_packets\n");
-    text += QStringLiteral("frames_lost_semantics=cumulative_receiver_frames\nrender_dropped_semantics=last_observed_renderer_one_second_window_not_session_total\n");
-    text += QStringLiteral("diagnostics_schema=3\nclock_utc=%1\n").arg(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+    text += QStringLiteral("frames_lost_semantics=cumulative_receiver_frames\nrender_dropped_semantics=session_total_renderer_drops\nmeasured_bitrate_semantics=session_mean_kbps_of_measured_seconds\n");
+    text += QStringLiteral("diagnostics_schema=4\nclock_utc=%1\n").arg(QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
     text += QStringLiteral("local_utc_offset_seconds=%1\n").arg(QDateTime::currentDateTime().offsetFromUtc());
     text += QStringLiteral("dropped_frames=%1\n").arg(snapshot.has_stream_stats ? QString::number(snapshot.dropped_frames) : QString());
     text += QStringLiteral("frames_lost=%1\n").arg(snapshot.has_stream_stats ? QString::number(snapshot.frames_lost) : QString());

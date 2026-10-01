@@ -7,6 +7,7 @@
 #include "nax5/nax5streamhealth.h"
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QCoreApplication>
 #include <QTemporaryDir>
 #include <QFile>
@@ -119,8 +120,10 @@ static void test_build_info_has_diagnostics_fields()
     expect(hasLine(text, QStringLiteral("network_active=")), "build info has network_active");
     expect(hasLine(text, QStringLiteral("avg_packet_loss=")), "build info has avg_packet_loss");
     expect(hasLine(text, QStringLiteral("dropped_frames=")), "build info has dropped_frames");
-    expect(text.contains(QStringLiteral("render_dropped_semantics=last_observed_renderer_one_second_window_not_session_total\n")),
-        "build info explains dropped frame window");
+    expect(text.contains(QStringLiteral("render_dropped_semantics=session_total_renderer_drops\n")),
+        "build info says dropped frames are a session total");
+    expect(text.contains(QStringLiteral("measured_bitrate_semantics=session_mean_kbps_of_measured_seconds\n")),
+        "build info says bitrate is a session mean");
     expect(hasLine(text, QStringLiteral("frames_lost=")), "build info has frames_lost");
     expect(hasLine(text, QStringLiteral("measured_bitrate=")), "build info has measured_bitrate");
     expect(hasLine(text, QStringLiteral("session_duration_sec=")), "build info has session_duration_sec");
@@ -313,6 +316,77 @@ static void test_queue_recovery_and_sanitization()
     expect(!nax5NextReportPart(root, 1).path.isEmpty(), "one ack does not erase remaining parts");
 }
 
+static void write_old_file(const QString &path, const QByteArray &data)
+{
+    QFile file(path);
+    expect(file.open(QIODevice::WriteOnly), "open crash fixture");
+    file.write(data);
+    file.close();
+    // Crash files younger than 5 s are treated as still being written.
+    expect(file.open(QIODevice::ReadWrite)
+        && file.setFileTime(QDateTime::currentDateTime().addSecs(-60), QFileDevice::FileModificationTime), "age crash fixture");
+    file.close();
+}
+
+static void test_crash_dumps_are_queued_as_crash_parts()
+{
+    QTemporaryDir dir;
+    const QString root = dir.filePath(QStringLiteral("queue"));
+    const QString dumps = dir.filePath(QStringLiteral("crash-dumps"));
+    expect(QDir().mkpath(dumps), "crash dump dir");
+    const QString play = nax5BeginReport(root, 7, QStringLiteral("session-crashed"), QStringLiteral("version=test\n"), {});
+    expect(!play.isEmpty(), "play journal before crash");
+    {
+        // The play started two minutes before the crash fixtures below.
+        QFile journal(QDir(root).filePath(play + QStringLiteral(".journal")));
+        expect(journal.open(QIODevice::ReadOnly), "read play journal");
+        auto object = QJsonDocument::fromJson(journal.readAll()).object();
+        journal.close();
+        object.insert("created_utc", QDateTime::currentDateTimeUtc().addSecs(-120).toString(Qt::ISODateWithMs));
+        expect(journal.open(QIODevice::WriteOnly | QIODevice::Truncate)
+            && journal.write(QJsonDocument(object).toJson(QJsonDocument::Compact)) > 0, "backdate play journal");
+        journal.close();
+    }
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190321-4242.dmp")), QByteArray("MDMP") + QByteArray(4096, '\x01'));
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190321-4242.txt")),
+        "reason=unhandled_exception\nexception_code=0xC0000005\nfault_module=C:\\NAX5\\chiaki.exe\nfault_offset=0x1234\n");
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190500-4243.dmp")), QByteArray(3 * 1024 * 1024, '\x02'));
+    write_old_file(QDir(dumps).filePath(QStringLiteral("NAX5-20260926-190500-4243.txt")), "reason=abort\n");
+    // WER LocalDumps copy of the crash already captured in-app (pid 4242) and a WER-only crash.
+    write_old_file(QDir(dumps).filePath(QStringLiteral("chiaki.exe.4242.dmp")), QByteArray("MDMP-wer-duplicate"));
+    write_old_file(QDir(dumps).filePath(QStringLiteral("chiaki.exe.999.dmp")), QByteArray("MDMP-wer-only"));
+
+    expect(nax5QueueCrashDumps(root, 7, dumps, QStringLiteral("client_version=testver\n")) == 3,
+        "in-app crashes and WER-only crash queued, WER duplicate dropped");
+    expect(QDir(dumps).entryList(QDir::Files).isEmpty(), "queued crash files removed from disk");
+
+    int with_dump = 0, summary_only = 0, wer_only = 0;
+    for (int i = 0; i < 3; ++i)
+    {
+        const auto part = nax5NextReportPart(root, 7);
+        expect(!part.path.isEmpty(), "crash part available for upload");
+        expect(part.kind == QStringLiteral("crash"), "crash part uses crash kind");
+        expect(part.session_id == QStringLiteral("session-crashed"), "crash attributed to the play that was running");
+        expect(part.archive.size() <= nax5ClientReportMaxArchiveBytes(), "crash part fits upload cap");
+        expect(!part.archive.contains("MDMP-wer-duplicate"), "WER duplicate never uploaded");
+        if (part.archive.contains("chiaki.exe.999.dmp"))
+            ++wer_only;
+        else if (part.archive.contains("NAX5-20260926-190321-4242.dmp"))
+        {
+            expect(part.archive.contains("fault_module=") && part.archive.contains("0xC0000005"), "summary travels with dump");
+            ++with_dump;
+        }
+        else
+        {
+            expect(part.archive.contains("too_large") && part.archive.contains("reason=abort"), "oversized dump keeps summary");
+            ++summary_only;
+        }
+        expect(nax5AcknowledgeReportPart(part), "ack crash part");
+    }
+    expect(with_dump == 1 && summary_only == 1 && wer_only == 1, "one dump shipped, one reduced to summary, one WER dump shipped");
+    expect(nax5QueueCrashDumps(root, 7, dumps, QString()) == 0, "nothing queued twice");
+}
+
 static void test_live_report_queue_batches_small_appends()
 {
     QTemporaryDir dir;
@@ -365,6 +439,23 @@ static void test_path_summary()
 static const QSet<QString> kBackendHealthKeys = {
     "window_s", "loss_max_pct", "frames_lost", "bitrate_min_kbps", "bitrate_p50_kbps", "render_dropped_max",
     "queue_max", "vps_sent", "vps_lost", "vps_rtt_p50_ms", "vps_rtt_p95_ms", "vps_rtt_max_ms", "vps_jitter_ms"};
+
+static void test_session_totals_cover_whole_session()
+{
+    Nax5SessionTotals totals;
+    expect(totals.averageBitrateKbps() == -1 && totals.averagePacketLoss() == 0, "empty totals");
+    // A lossy middle and a quiet final second, as in the 26.09 Maikop session.
+    const QList<Nax5StreamSecond> samples = {
+        {0.00, 0, 5000, 0, 1}, {0.10, 2, 3000, 1200, 3}, {0.02, 4, 4000, 300, 2}, {0.00, 4, 0, 0, 1}};
+    for (const auto &s : samples) totals.add(s);
+    expect(totals.seconds() == 4, "totals count seconds");
+    expect(totals.renderDroppedTotal() == 1500, "dropped frames summed over the session, not the last second");
+    expect(totals.averageBitrateKbps() == 4000, "bitrate averages only measured seconds");
+    expect(qAbs(totals.averagePacketLoss() - 0.03) < 1e-9, "packet loss is the session mean");
+    expect(qAbs(totals.maxPacketLoss() - 0.10) < 1e-9, "max packet loss over the session");
+    totals.reset();
+    expect(totals.seconds() == 0 && totals.renderDroppedTotal() == 0, "reset clears totals");
+}
 
 static void test_stream_health_window()
 {
@@ -519,7 +610,9 @@ int main(int argc, char **argv)
     test_full_session_is_not_silently_truncated();
     test_live_report_queue_batches_small_appends();
     test_queue_recovery_and_sanitization();
+    test_crash_dumps_are_queued_as_crash_parts();
     test_path_summary();
+    test_session_totals_cover_whole_session();
     test_stream_health_window();
     test_telemetry_metadata_batch();
     test_path_probe_local_echo();

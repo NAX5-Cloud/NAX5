@@ -148,6 +148,9 @@ struct MicBuf
 class StreamSession : public QObject
 {
 	friend class StreamSessionPrivate;
+#ifdef NAX5_STREAM_REPLAY
+	friend class Nax5StreamReplay;
+#endif
 
 	Q_OBJECT
 	Q_PROPERTY(QString host READ GetHost CONSTANT)

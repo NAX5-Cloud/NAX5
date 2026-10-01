@@ -29,6 +29,9 @@ int nax5TerminalRetryLimit();
 // Network failures and 5xx (e.g. a backend deadlock) leave the session occupied; retry them.
 bool nax5TerminalShouldRetry(Nax5SessionError error);
 int nax5TerminalRetryDelayMs(int attempt);
+// Pause before chiaki re-requests a Remote Play session that failed to start
+// (e.g. the console is still releasing the previous one: "Remote is already in use").
+int nax5StreamRetryDelayMs(qint64 elapsed_since_first_attempt_ms);
 int nax5ShutdownGraceMs();
 int nax5ShutdownReportGraceMs();
 bool nax5MaySleepConsole(bool operator_mode);
@@ -58,3 +61,22 @@ struct Nax5MaterialWakeup
 };
 
 Nax5MaterialWakeup nax5MaterialWakeupCall(const QString &host, const QByteArray &regist_key, bool ps5);
+
+// Write-ahead record of a terminal mutation (/end/, /fail/, /cancel/) that the
+// server has not acknowledged yet. Saved before sending and cleared on a final
+// answer, so a network drop, closed window or crash does not leave the session
+// open on the server; the next login resends it before syncing the current one.
+struct Nax5PersistedTerminal
+{
+    qint64 owner = 0;
+    QString session_id;
+    Nax5TerminalMutation mutation = Nax5TerminalMutationNone;
+    QString saved_utc;
+};
+
+class QSettings;
+void nax5SaveTerminal(QSettings &settings, const Nax5PersistedTerminal &terminal);
+// Empty result if nothing is stored, it belongs to another account or is older than a day.
+Nax5PersistedTerminal nax5LoadTerminal(QSettings &settings, qint64 owner);
+// Clears only the record for session_id, so a newer session's record survives.
+void nax5ClearTerminal(QSettings &settings, const QString &session_id);

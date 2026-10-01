@@ -85,6 +85,28 @@ Product Play requires authenticated user, verified email, and `accessStatus == A
 | Manual ZIP | Desktop via `Nax5Session.saveReport()` |
 | Automatic report journal | `%AppData%/Roaming/NAX5/NAX5/log/report-queue-v2/`; sanitized, owner-tagged session ZIP parts |
 | Server reports | `POST https://cloudgta6.com/api/v1/client-reports/` after a session, when logged in |
+| Crash dumps | `%AppData%/Roaming/NAX5/NAX5/log/crash-dumps/NAX5-<utc>-<pid>.dmp` + `.txt`; uploaded as kind `crash` on the next login |
+
+### Crash dumps
+
+`nax5InstallCrashHandler()` runs at the top of `main()`. On an unhandled
+exception, `abort()` or `std::terminate()` a pre-started thread writes a
+minidump (stacks, threads, modules; no heap, so tokens and Remote Play keys
+stay out) and `crash-summary` text with the exception code, faulting module and
+offset. Windows Error Reporting still runs afterwards, so the crash also lands
+in the Application event log (ID 1000). Admin-mode installs additionally set
+WER `LocalDumps` for `chiaki.exe` into the same folder; duplicates of a crash
+the handler already caught are dropped.
+
+On the next login `nax5QueueCrashDumps()` turns each crash into one `crash`
+report (summary + dump, or summary only when the dump exceeds the 2 MiB cap)
+attributed to the play session that was running. Release builds have no DWARF
+but keep the COFF symbol table, so map an offset with the exact build's
+`chiaki.exe`:
+
+```
+scripts/diagnostics/symbolize-crash.sh chiaki.exe 0x1A2B3C
+```
 
 Automatic reports contain the complete sanitized process and stream logs captured
 for that session, split into bounded ZIP parts below the server limit. Every

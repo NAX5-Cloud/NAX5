@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: LicenseRef-AGPL-3.0-only-OpenSSL
 
 #include <streamsession.h>
+#include "nax5/session/nax5sessionlifecycle.h"
+#ifdef NAX5_STREAM_REPLAY
+#include "nax5/nax5streamreplay.h"
+// Replay tests run the full microphone path but never send to a console.
+#define NAX5_SEND_MIC_FRAME(buf) nax5StreamReplayMicFrame()
+#else
+#define NAX5_SEND_MIC_FRAME(buf) chiaki_opus_encoder_frame((buf), &opus_encoder)
+#endif
 #include <settings.h>
 #include <controllermanager.h>
 
@@ -619,6 +627,13 @@ void StreamSession::Start()
 {
 	if(!connect_timer.isValid())
 		connect_timer.start();
+#ifdef NAX5_STREAM_REPLAY
+	if(nax5StreamReplayActive())
+	{
+		nax5StreamReplayStart(this);
+		return;
+	}
+#endif
 	ChiakiErrorCode err = chiaki_session_start(&session);
 	if(err != CHIAKI_ERR_SUCCESS)
 	{
@@ -630,6 +645,13 @@ void StreamSession::Start()
 void StreamSession::Stop()
 {
 	mic_active.storeRelaxed(false);
+#ifdef NAX5_STREAM_REPLAY
+	if(nax5StreamReplayActive())
+	{
+		nax5StreamReplayStop(this);
+		return;
+	}
+#endif
 	chiaki_session_stop(&session);
 }
 
@@ -667,9 +689,15 @@ void StreamSession::ToggleMute()
 				CHIAKI_LOGE(GetChiakiLog(), "Microphone initialization failed, leaving microphone muted");
 				return;
 			}
+#ifdef NAX5_STREAM_REPLAY
+			if(!nax5StreamReplayActive())
+#endif
 			chiaki_session_connect_microphone(&session);
 			mic_connected = true;
 		}
+#ifdef NAX5_STREAM_REPLAY
+	if(!nax5StreamReplayActive())
+#endif
 	chiaki_session_toggle_microphone(&session, muted);
 	if (muted)
 		muted = false;
@@ -1281,8 +1309,13 @@ void StreamSession::InitMic(unsigned int channels, unsigned int rate)
 			clear_mic_buffers();
 			return;
 		}
+		// Size both buffers from the frame layout, never from SDL_AudioCVT::len_ratio:
+		// on Windows sdl2-compat 2.32.64 packs SDL_AudioCVT inside the DLL but the
+		// public header does not, so len_ratio read here is garbage (often 0) and the
+		// echo buffer came out empty, corrupting the heap on every played frame.
+		// Mono mic frame -> stereo for the encoder.
 		mic_speex_cvt.len = mic_buf.size_bytes;
-		mic_resampler_buf = (uint8_t*) calloc(mic_speex_cvt.len * mic_speex_cvt.len_mult, sizeof(uint8_t));
+		mic_resampler_buf = (uint8_t*) calloc(mic_buf.size_bytes * 2 * qMax(1, mic_speex_cvt.len_mult), sizeof(uint8_t));
 		if(!mic_resampler_buf)
 		{
 			CHIAKI_LOGE(GetChiakiLog(), "Mic resampler buf could not be created, aborting mic startup");
@@ -1296,8 +1329,9 @@ void StreamSession::InitMic(unsigned int channels, unsigned int rate)
 			clear_mic_buffers();
 			return;
 		}
-		echo_speex_cvt.len = mic_speex_cvt.len * mic_speex_cvt.len_ratio;
-		echo_resampler_buf = (uint8_t*) calloc(echo_speex_cvt.len * echo_speex_cvt.len_mult, sizeof(uint8_t));
+		// Stereo playback frame (what PushAudioFrame copies in) -> mono echo reference.
+		echo_speex_cvt.len = mic_buf.size_bytes * 2;
+		echo_resampler_buf = (uint8_t*) calloc(echo_speex_cvt.len * qMax(1, echo_speex_cvt.len_mult), sizeof(uint8_t));
 		if(!echo_resampler_buf)
 		{
 			CHIAKI_LOGE(GetChiakiLog(), "Echo resampler buf could not be created, aborting mic startup");
@@ -1446,7 +1480,7 @@ bool StreamSession::ProcessMicFrame(int16_t *echo_buf)
 {
 	if(!speech_processing_enabled)
 	{
-		chiaki_opus_encoder_frame(mic_buf.buf, &opus_encoder);
+		NAX5_SEND_MIC_FRAME(mic_buf.buf);
 		return true;
 	}
 
@@ -1480,7 +1514,7 @@ bool StreamSession::ProcessMicFrame(int16_t *echo_buf)
 		return false;
 	}
 
-	chiaki_opus_encoder_frame(reinterpret_cast<int16_t *>(mic_resampler_buf), &opus_encoder);
+	NAX5_SEND_MIC_FRAME(reinterpret_cast<int16_t *>(mic_resampler_buf));
 	return true;
 }
 #endif
@@ -1514,7 +1548,7 @@ void StreamSession::ReadMic(const QByteArray &micdata)
 		if(!ProcessMicFrame(echo_buf))
 			return;
 #else
-	    chiaki_opus_encoder_frame(mic_buf.buf, &opus_encoder);
+	    NAX5_SEND_MIC_FRAME(mic_buf.buf);
 #endif
 		bytes_read -= mic_bytes_left;
 		uint32_t frames = bytes_read / mic_buf.size_bytes;
@@ -1525,7 +1559,7 @@ void StreamSession::ReadMic(const QByteArray &micdata)
 			if(!ProcessMicFrame(echo_buf))
 				return;
 #else
-	    chiaki_opus_encoder_frame(mic_buf.buf, &opus_encoder);
+	    NAX5_SEND_MIC_FRAME(mic_buf.buf);
 #endif
 		}
 		mic_buf.current_byte = bytes_read % mic_buf.size_bytes;
@@ -2214,7 +2248,9 @@ void StreamSession::Event(ChiakiEvent *event)
 		case CHIAKI_EVENT_QUIT:
 			if(!connected && !holepunch_session && chiaki_quit_reason_is_error(event->quit.reason) && connect_timer.elapsed() < SESSION_RETRY_SECONDS * 1000)
 			{
-				QTimer::singleShot(SESSION_RETRY_SECONDS / 3, this, &StreamSession::Start);
+				// Upstream passed SESSION_RETRY_SECONDS / 3 (= 6) as milliseconds and hammered
+				// the console with ~150 session requests in 2 s while it was still busy.
+				QTimer::singleShot(nax5StreamRetryDelayMs(connect_timer.elapsed()), this, &StreamSession::Start);
 				return;
 			}
 			connected = false;
