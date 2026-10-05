@@ -7,19 +7,28 @@ Release facts (tag, commit, checksums) are recorded in the workspace `RELEASES.m
 and 14 and not since; the exact differences are listed in [FORK-MAINTENANCE.md](../FORK-MAINTENANCE.md).
 Builds 15 and 16 change neither.
 
-## Build 16 (not released yet)
+## Build 16 (released 2026-10-05)
 
 Play time. Everything here is shown only when the backend charges play time (`billingEnforced` in
 `/api/v1/auth/me/`); against a backend that does not, the launcher behaves like build 15.
 
 - The play panel shows the balance, and the time left while a session runs, with a «Пополнить» button that
   opens the account page in the browser.
-- A notice over the stream at five minutes and at one minute of play time left.
+- A notice over the stream at ten, five and one minute of play time left: a small dark pill at the top centre
+  for 6, 8 and 10 seconds (orange for the last minute), no sound, no input taken. The stream menu shows the
+  time left.
 - When the server ends a session it says why: play time ran out, or the session passed the shared-console
   limit while somebody else was waiting. Starting without play time and the cooldown after that limit have
   their own messages.
 - The balance is re-read after a session and when the window becomes active again.
 - No play time and the cooldown do not upload a `reserve-fail` report.
+
+Console status (works without play time being charged):
+
+- A status line above the play button: the console is free, taken (and in how long it gets free when the
+  server knows) or switched off. Re-read every 30 seconds, after a refusal and after a session.
+- When a taken console gets free the line says so and the taskbar icon blinks.
+- The refusal text is now about one console, not about "all consoles".
 
 Fixes from the study of build 15 logs (365 sessions):
 
