@@ -419,41 +419,61 @@ Item {
             sourceComponent: placeboColorMappingDialogComponent
         }
     }
-    // NAX5: "five minutes / one minute of play time left", shown over the stream.
+    // NAX5: "ten / five / one minute of play time left", shown over the stream. Top centre: the console's own
+    // notifications come from the top right, subtitles sit at the bottom. It takes no input and goes away itself.
     Rectangle {
         id: nax5TimeNotice
+        property bool last: false
         z: 1000
         anchors {
             top: parent.top
             horizontalCenter: parent.horizontalCenter
-            topMargin: 30
+            topMargin: 24
         }
-        color: "#e65100"
-        width: nax5TimeNoticeLabel.width + 40
-        height: nax5TimeNoticeLabel.height + 20
-        radius: 8
-        opacity: nax5TimeNoticeTimer.running ? 0.92 : 0.0
+        // A quiet dark pill; orange only for the last minute.
+        color: last ? "#e65100" : "#141414"
+        border.width: 1
+        border.color: last ? "#ffb74d" : "#66ffcc80"
+        width: nax5TimeNoticeRow.width + 32
+        height: nax5TimeNoticeRow.height + 18
+        radius: height / 2
+        opacity: nax5TimeNoticeTimer.running ? (last ? 0.95 : 0.85) : 0.0
         visible: opacity > 0
 
         Behavior on opacity { NumberAnimation { duration: 400 } }
 
-        Label {
-            id: nax5TimeNoticeLabel
+        Row {
+            id: nax5TimeNoticeRow
             anchors.centerIn: parent
-            color: "#ffffff"
-            font.bold: true
-            font.pixelSize: 20
+            spacing: 10
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 8
+                height: 8
+                radius: 4
+                color: nax5TimeNotice.last ? "#ffffff" : "#ffcc80"
+            }
+
+            Label {
+                id: nax5TimeNoticeLabel
+                color: "#ffffff"
+                font.bold: nax5TimeNotice.last
+                font.pixelSize: 16
+            }
         }
 
         Timer {
             id: nax5TimeNoticeTimer
-            interval: 12000
+            interval: 6000
         }
 
         Connections {
             target: Nax5Session
             function onTimeNoticeChanged() {
                 nax5TimeNoticeLabel.text = Nax5Session.timeNotice;
+                nax5TimeNotice.last = Nax5Session.timeNoticeLast;
+                nax5TimeNoticeTimer.interval = Nax5Session.timeNoticeMs;
                 nax5TimeNoticeTimer.restart();
             }
         }

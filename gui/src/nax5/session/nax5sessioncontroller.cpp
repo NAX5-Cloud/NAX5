@@ -1471,6 +1471,8 @@ void Nax5SessionController::setRemainingSeconds(qint64 seconds)
     {
         // Always emitted, even with the same text: the view shows it again.
         time_notice = nax5LowTimeNotice(threshold);
+        time_notice_ms = nax5LowTimeNoticeMs(threshold);
+        time_notice_last = threshold == 60;
         emit timeNoticeChanged();
     }
 }

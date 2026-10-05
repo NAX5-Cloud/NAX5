@@ -91,6 +91,12 @@ static void test_play_time_answers()
     expect(nax5LowTimeThreshold(80, 60) == 60, "one minute warning");
     expect(nax5LowTimeThreshold(-1, 200) == 300, "a session that starts short warns at once");
     expect(nax5LowTimeThreshold(-1, 4000) == 0, "no warning with plenty of time");
+    expect(nax5LowTimeThreshold(620, 600) == 600, "ten minute warning");
+    expect(nax5LowTimeThreshold(600, 580) == 0, "ten minute warning only once");
+    expect(nax5LowTimeThreshold(-1, 500) == 600, "a session that starts under ten minutes says so");
+    expect(nax5LowTimeThreshold(700, 250) == 300, "a jump over two marks shows the nearer one");
+    expect(nax5LowTimeNoticeMs(600) == 6000 && nax5LowTimeNoticeMs(300) == 8000 && nax5LowTimeNoticeMs(60) == 10000, "notice durations");
+    expect(nax5LowTimeNotice(300) == QStringLiteral("Осталось 5 минут. Найдите место для сохранения"), "five minute text");
     expect(nax5LowTimeThreshold(100, -1) == 0, "no warning when time is not reported");
     expect(nax5ConsoleStatusText(QStringLiteral("busy"), 900, false) == QStringLiteral("Консоль занята. Освободится через 15 мин"), "busy console says when it gets free");
     expect(nax5ConsoleStatusText(QStringLiteral("busy"), 10800, false) == QStringLiteral("Консоль занята. Освободится через 3 ч"), "long wait is said as it is");

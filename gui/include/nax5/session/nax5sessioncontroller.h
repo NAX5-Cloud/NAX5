@@ -49,6 +49,8 @@ class Nax5SessionController : public QObject
     Q_PROPERTY(bool topUpSuggested READ topUpSuggested NOTIFY playTimeChanged)
     Q_PROPERTY(QString topUpUrl READ topUpUrl CONSTANT)
     Q_PROPERTY(QString timeNotice READ timeNotice NOTIFY timeNoticeChanged)
+    Q_PROPERTY(int timeNoticeMs READ timeNoticeMs NOTIFY timeNoticeChanged)
+    Q_PROPERTY(bool timeNoticeLast READ timeNoticeLast NOTIFY timeNoticeChanged)
     Q_PROPERTY(int retrySeconds READ retrySeconds NOTIFY retryChanged)
 
 public:
@@ -75,6 +77,8 @@ public:
     bool topUpSuggested() const { return top_up_suggested; }
     QString topUpUrl() const { return QStringLiteral("https://www.cloudgta6.com/account/"); }
     QString timeNotice() const { return time_notice; }
+    int timeNoticeMs() const { return time_notice_ms; }
+    bool timeNoticeLast() const { return time_notice_last; }
     int retrySeconds() const;
 
     Q_INVOKABLE void play();
@@ -212,6 +216,8 @@ private:
     qint64 remaining_seconds = -1;
     bool top_up_suggested = false;
     QString time_notice;
+    int time_notice_ms = 0;
+    bool time_notice_last = false;
     QString console_code;
     QString console_region;
     QString session_id;

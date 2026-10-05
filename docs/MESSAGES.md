@@ -50,7 +50,8 @@ Notes:
 
 | Text | When |
 | --- | --- |
-| Осталось 5 минут игрового времени. | time left drops to 300 s |
-| Осталась 1 минута игрового времени. Сохранитесь: игра остановится. | time left drops to 60 s |
+| Осталось 10 минут | time left drops to 600 s; stays 6 s |
+| Осталось 5 минут. Найдите место для сохранения | time left drops to 300 s; stays 8 s |
+| Осталась 1 минута. Сохранитесь: игра остановится | time left drops to 60 s; stays 10 s, orange |
 
 A session that starts with less than five minutes shows the notice at its first heartbeat.

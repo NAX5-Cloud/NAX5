@@ -93,6 +93,8 @@ QString nax5FormatPlayTime(qint64 seconds);
 // 300 or 60 when the time left has just dropped to five minutes or one minute; 0 otherwise.
 int nax5LowTimeThreshold(qint64 previous_remaining, qint64 remaining);
 QString nax5LowTimeNotice(int threshold);
+// How long the notice stays over the stream.
+int nax5LowTimeNoticeMs(int threshold);
 // One line about the single console for the play panel; empty when the server says nothing.
 QString nax5ConsoleStatusText(const QString &state, qint64 free_in_seconds, bool just_freed);
 // What to tell the player when the server ended the session; `reason` comes from the closing answer.

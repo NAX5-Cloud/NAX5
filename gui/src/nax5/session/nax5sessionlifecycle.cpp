@@ -298,16 +298,30 @@ int nax5LowTimeThreshold(qint64 previous_remaining, qint64 remaining)
         return 60;
     if (remaining <= 300 && before > 300)
         return 300;
+    if (remaining <= 600 && before > 600)
+        return 600;
     return 0;
 }
 
 QString nax5LowTimeNotice(int threshold)
 {
     if (threshold == 60)
-        return QStringLiteral("Осталась 1 минута игрового времени. Сохранитесь: игра остановится.");
+        return QStringLiteral("Осталась 1 минута. Сохранитесь: игра остановится");
     if (threshold == 300)
-        return QStringLiteral("Осталось 5 минут игрового времени.");
+        return QStringLiteral("Осталось 5 минут. Найдите место для сохранения");
+    if (threshold == 600)
+        return QStringLiteral("Осталось 10 минут");
     return QString();
+}
+
+int nax5LowTimeNoticeMs(int threshold)
+{
+    // The closer to the end, the longer it stays; never long enough to get in the way of the game.
+    if (threshold == 60)
+        return 10000;
+    if (threshold == 300)
+        return 8000;
+    return 6000;
 }
 
 QString nax5ConsoleStatusText(const QString &state, qint64 free_in_seconds, bool just_freed)

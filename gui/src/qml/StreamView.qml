@@ -776,6 +776,17 @@ Item {
             }
             }
 
+            // NAX5: play time left, for a player who wants to check it without leaving the game.
+            Label {
+                anchors {
+                    right: consoleNameLabel.right
+                    bottom: consoleNameLabel.top
+                    bottomMargin: 44
+                }
+                visible: Nax5Session.remainingText.length > 0
+                text: qsTr("Осталось игрового времени: <b>%1</b>").arg(Nax5Session.remainingText)
+                font.pixelSize: 18
+            }
             Label {
                 anchors {
                     right: consoleNameLabel.right
