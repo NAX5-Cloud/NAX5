@@ -1,6 +1,6 @@
 # TEST MATRIX
 
-Permanent NAX5 test register. Status is automated unless marked Manual. Current target: Alpha 0.5 build 4 (`alpha-0.5-build-4`).
+Permanent NAX5 test register. Status is automated unless marked Manual. Current target: Alpha 0.5 build 16 (`alpha-0.5-build-16`); rows without a newer date were last confirmed on the build named in their notes.
 
 | Test | Automated/Manual | Backend/NAX5/Vanilla/Both | LAN/WAN | Commit | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -31,8 +31,8 @@ Permanent NAX5 test register. Status is automated unless marked Manual. Current 
 | Secret provider atomic replace | Automated | Backend | n/a | | Implemented | filesystem provider |
 | Django accounts/waitlist/consoles/sessions | Automated | Backend | n/a | | Run against PostgreSQL | never SQLite |
 | Allocator concurrency | Automated | Backend | n/a | | Existing Task 3 suite | |
-| Stream replay matrix (decoders, codecs incl. HDR, mic/echo, loss, corruption, jitter, stall) | Automated | NAX5 | n/a | | 17/17 PASS 2026-09-27 | `scripts/tests/stream-replay/`; needs `-DNAX5_STREAM_REPLAY=ON` build; Vulkan decoder only where available |
-| Client <-> backend integration (login, reserve/idempotency, NO_CAPACITY + 5 s backoff, connection material, heartbeat, end/retry, network drop -> lease expiry, events, crash-dump report, update-required) | Automated | Both | LAN | | 32/32 PASS 2026-09-27 | `scripts/tests/integration/run-backend-integration.ps1`; local backend + PostgreSQL 55433 |
+| Stream replay matrix (decoders, codecs incl. HDR, mic/echo, loss, corruption, jitter, stall) | Automated | NAX5 | n/a | | 17/17 PASS 2026-10-05 (build 16) | `scripts/tests/stream-replay/`; needs `-DNAX5_STREAM_REPLAY=ON` build; Vulkan decoder only where available |
+| Client <-> backend integration (login, reserve/idempotency, NO_CAPACITY + reserve backoff (the test sets the backend to 5 s; the production default is 60 s), connection material, heartbeat, end/retry, network drop -> lease expiry, events, crash-dump report, update-required) | Automated | Both | LAN | | all checks PASS 2026-10-05 (build 16, backend with play time) | `scripts/tests/integration/run-backend-integration.ps1`; local backend + PostgreSQL 55433 |
 | Launcher Qt offscreen smoke | Automated | NAX5 | n/a | | Limited | requires packaged `chiaki.exe` + Qt offscreen |
 | Operator physical PIN + READY | Manual | Both | LAN | | **STOP here** | do not simulate PS5 |
 | Product 0 registered hosts automatic play | Manual | NAX5 | LAN/WAN | | **NOT TESTED** | Alpha 0.5 user pack |
@@ -40,4 +40,6 @@ Permanent NAX5 test register. Status is automated unless marked Manual. Current 
 | Telemetry event payload privacy | Automated | NAX5 | n/a | | Implemented | no password, session token, registration key, or morning value |
 | Process + session log rotation | Automated | NAX5 | n/a | | Implemented | `nax5processlog`, 5 files |
 | Vanilla A/B 5–10 min | Manual | Both | LAN/WAN | | After user connect | same PC/PS5/controller |
-| 30+ minute soak | Manual | NAX5 | LAN/WAN | | **NOT TESTED** | heartbeat is Task 6; hard TTL 7200s |
+| 30+ minute soak | Manual | NAX5 | LAN/WAN | | Seen in production on build 15 (sessions over an hour); not run as a controlled test | heartbeat every 20 s keeps the session alive |
+| Play time: balance on the panel, notices at 5 and 1 minute, stop at zero, «Пополнить» | Manual | Both | WAN | | **NOT TESTED** | build 16; parsers and decisions are unit-tested, the screen is not |
+| Vulkan decoder on Intel/AMD/NVIDIA | Manual | NAX5 | n/a | | **NOT TESTED** | the build machine has no Vulkan video decoding; see KI-013 |
