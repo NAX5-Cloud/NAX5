@@ -87,3 +87,22 @@ void nax5SaveTerminal(QSettings &settings, const Nax5PersistedTerminal &terminal
 Nax5PersistedTerminal nax5LoadTerminal(QSettings &settings, qint64 owner);
 // Clears only the record for session_id, so a newer session's record survives.
 void nax5ClearTerminal(QSettings &settings, const QString &session_id);
+
+// Play time for people: whole minutes, never rounded up ("1 ч 12 мин").
+QString nax5FormatPlayTime(qint64 seconds);
+// 300 or 60 when the time left has just dropped to five minutes or one minute; 0 otherwise.
+int nax5LowTimeThreshold(qint64 previous_remaining, qint64 remaining);
+QString nax5LowTimeNotice(int threshold);
+// How long the notice stays over the stream.
+int nax5LowTimeNoticeMs(int threshold);
+// One line about the single console for the play panel; empty when the server says nothing.
+QString nax5ConsoleStatusText(const QString &state, qint64 free_in_seconds, bool just_freed);
+// What to tell the player when the server ended the session; `reason` comes from the closing answer.
+QString nax5SessionClosedText(const QString &reason);
+bool nax5SessionClosedForBalance(const QString &reason);
+
+// A crash inside the GPU vendor's Vulkan driver while the Vulkan video decoder was in use: the fix that
+// works in the field is the Direct3D decoder. Returns the decoder to switch to, or an empty string.
+QString nax5DecoderAfterCrash(const QString &current_decoder, const QString &fault_module);
+// How long «Играть» stays blocked after the server refused; the server's own pause when it tells one.
+int nax5ReserveRetryPauseMs(qint64 retry_after_seconds);

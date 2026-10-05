@@ -242,6 +242,29 @@ static void test_remembered_login_never_persists_secrets()
     expect(!settings.contains(QStringLiteral("auth/session_token")), "legacy token key removed");
 }
 
+static void test_me_play_time()
+{
+    const char *old_backend =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true}";
+    const Nax5MeParseResult before = nax5ParseMeResponse(200, old_backend);
+    expect(before.ok && before.balance_seconds == -1 && !before.billing_enforced, "me without play time still parses");
+    const char *body =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,"
+        "\"balanceSeconds\":4320,\"billingEnforced\":true}";
+    const Nax5MeParseResult result = nax5ParseMeResponse(200, body);
+    expect(result.ok && result.balance_seconds == 4320 && result.billing_enforced, "me carries play time");
+    expect(result.console_state.isEmpty() && result.console_free_in_seconds == -1, "me without console status");
+    const char *busy =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,"
+        "\"consoleState\":\"busy\",\"consoleFreeInSeconds\":900}";
+    const Nax5MeParseResult taken = nax5ParseMeResponse(200, busy);
+    expect(taken.console_state == QStringLiteral("busy") && taken.console_free_in_seconds == 900, "me carries console status");
+    const char *unknown =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,"
+        "\"consoleState\":\"busy\",\"consoleFreeInSeconds\":null}";
+    expect(nax5ParseMeResponse(200, unknown).console_free_in_seconds == -1, "unknown wait stays unknown");
+}
+
 int main()
 {
     test_login_success();
@@ -264,6 +287,7 @@ int main()
     test_invalid_env_does_not_fall_back_to_production();
     test_spaces_and_empty_env_are_controlled();
     test_remembered_login_never_persists_secrets();
+    test_me_play_time();
     if (g_failed)
     {
         std::fprintf(stderr, "%d NAX5 auth tests failed\n", g_failed);

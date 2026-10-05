@@ -4,7 +4,7 @@ static QString productMessage(Nax5SessionError error)
 {
     switch (error) {
     case Nax5SessionErrorNoCapacity:
-        return QStringLiteral("Все консоли сейчас заняты.\nПопробуйте немного позже.");
+        return QStringLiteral("Консоль сейчас занята.\nЛаунчер сообщит здесь, когда она освободится.");
     case Nax5SessionErrorUserNotEligible:
         return QStringLiteral("Этот аккаунт пока не может получить консоль.");
     case Nax5SessionErrorActiveSessionExists:
@@ -31,6 +31,12 @@ static QString productMessage(Nax5SessionError error)
         return QStringLiteral("Не удалось подключиться к консоли.");
     case Nax5SessionErrorClientUpdateRequired:
         return QStringLiteral("Доступно обязательное обновление NAX5. Установите новую версию, чтобы продолжить игру.");
+    case Nax5SessionErrorInsufficientBalance:
+        return QStringLiteral("Игровое время закончилось.\nПополните его в аккаунте на сайте и нажмите «Играть».");
+    case Nax5SessionErrorConsoleOffline:
+        return QStringLiteral("Консоль сейчас выключена." "\n" "Мы уже знаем об этом и включим её. Попробуйте позже.");
+    case Nax5SessionErrorSessionCooldown:
+        return QStringLiteral("Консоль ждут другие игроки.\nВы играли больше 3 часов, попробуйте снова через 10 минут.");
     case Nax5SessionErrorNone:
         return QString();
     }

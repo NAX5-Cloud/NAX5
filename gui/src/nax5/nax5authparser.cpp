@@ -149,5 +149,14 @@ Nax5MeParseResult nax5ParseMeResponse(int http_status, const QByteArray &body)
     result.city = root.value(QStringLiteral("city")).toString();
     result.access_status = access_status;
     result.email_verified = root.value(QStringLiteral("emailVerified")).toBool();
+    // Optional: older backends do not send play time.
+    const QJsonValue balance = root.value(QStringLiteral("balanceSeconds"));
+    if (balance.isDouble() && balance.toDouble() >= 0)
+        result.balance_seconds = balance.toVariant().toLongLong();
+    result.billing_enforced = root.value(QStringLiteral("billingEnforced")).toBool(false);
+    result.console_state = root.value(QStringLiteral("consoleState")).toString();
+    const QJsonValue free_in = root.value(QStringLiteral("consoleFreeInSeconds"));
+    if (free_in.isDouble() && free_in.toDouble() >= 0)
+        result.console_free_in_seconds = free_in.toVariant().toLongLong();
     return result;
 }

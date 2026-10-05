@@ -53,6 +53,9 @@ static bool parseAssignment(const QJsonObject &root, Nax5SessionParseResult *res
     if (!parseSessionObject(session_value.toObject(), &result->session))
         return false;
     result->has_session = true;
+    const QJsonValue remaining = root.value(QStringLiteral("remainingSeconds"));
+    if (remaining.isDouble() && remaining.toDouble() >= 0)
+        result->remaining_seconds = remaining.toVariant().toLongLong();
     const QJsonValue console_value = root.value(QStringLiteral("console"));
     if (console_value.isObject() && parseConsoleObject(console_value.toObject(), &result->console))
         result->has_console = true;
@@ -65,6 +68,10 @@ static Nax5SessionError errorFromCode(const QString &code, int http_status)
         return Nax5SessionErrorNoCapacity;
     if (code == QLatin1String("USER_NOT_ELIGIBLE"))
         return Nax5SessionErrorUserNotEligible;
+    if (code == QLatin1String("INSUFFICIENT_BALANCE"))
+        return Nax5SessionErrorInsufficientBalance;
+    if (code == QLatin1String("CONSOLE_OFFLINE"))
+        return Nax5SessionErrorConsoleOffline;
     if (code == QLatin1String("ACTIVE_SESSION_EXISTS"))
         return Nax5SessionErrorActiveSessionExists;
     if (code == QLatin1String("UNAUTHENTICATED"))
@@ -103,7 +110,13 @@ static Nax5SessionParseResult parseDomainError(int http_status, const QByteArray
     Nax5SessionParseResult result;
     if (http_status == 429)
     {
-        result.error = Nax5SessionErrorRateLimited;
+        QJsonObject limited;
+        const bool cooldown = parseJsonObject(body, &limited)
+            && limited.value(QStringLiteral("reason")).toString() == QLatin1String("SESSION_COOLDOWN");
+        result.error = cooldown ? Nax5SessionErrorSessionCooldown : Nax5SessionErrorRateLimited;
+        const QJsonValue retry = limited.value(QStringLiteral("retryAfterSeconds"));
+        if (retry.isDouble() && retry.toDouble() > 0)
+            result.retry_after_seconds = retry.toVariant().toLongLong();
         return result;
     }
     if (http_status >= 500)
@@ -125,6 +138,13 @@ static Nax5SessionParseResult parseDomainError(int http_status, const QByteArray
     }
 
     result.error = errorFromCode(root.value(QStringLiteral("code")).toString(), http_status);
+    result.reason = root.value(QStringLiteral("reason")).toString();
+    const QJsonValue retry = root.value(QStringLiteral("retryAfterSeconds"));
+    if (retry.isDouble() && retry.toDouble() > 0)
+        result.retry_after_seconds = retry.toVariant().toLongLong();
+    const QJsonValue balance = root.value(QStringLiteral("balanceSeconds"));
+    if (balance.isDouble() && balance.toDouble() >= 0)
+        result.balance_seconds = balance.toVariant().toLongLong();
     if (result.error == Nax5SessionErrorClientUpdateRequired)
     {
         result.minimum_version = root.value(QStringLiteral("minimumVersion")).toString();

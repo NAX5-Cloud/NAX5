@@ -1,9 +1,12 @@
 #include "nax5/nax5authcontroller.h"
+#include "nax5/session/nax5sessionlifecycle.h"
 #include "nax5/nax5apiclient.h"
 #include "nax5/nax5authparser.h"
 #include "nax5/nax5authstore.h"
 
+#include <QGuiApplication>
 #include <QTimer>
+#include <QWindow>
 
 Nax5AuthController::Nax5AuthController(QObject *parent)
     : QObject(parent)
@@ -77,7 +80,58 @@ void Nax5AuthController::clearAccount()
     account_city.clear();
     access_status.clear();
     email_verified = false;
+    balance_seconds = -1;
+    billing_enforced = false;
+    console_state.clear();
+    console_free_in_seconds = -1;
+    console_just_freed = false;
     emit accountChanged();
+}
+
+QString Nax5AuthController::consoleText() const
+{
+    return nax5ConsoleStatusText(console_state, console_free_in_seconds, console_just_freed);
+}
+
+void Nax5AuthController::consoleNoticeSeen()
+{
+    if (!console_just_freed)
+        return;
+    console_just_freed = false;
+    emit accountChanged();
+}
+
+void Nax5AuthController::setConsole(const QString &state, qint64 free_in_seconds, bool announce)
+{
+    const bool was_taken = console_state == QStringLiteral("busy") || console_state == QStringLiteral("offline");
+    const bool freed = announce && was_taken && state == QStringLiteral("free");
+    console_state = state;
+    console_free_in_seconds = free_in_seconds;
+    if (state != QStringLiteral("free"))
+        console_just_freed = false;
+    if (freed)
+    {
+        // The player was waiting, maybe in another window: blink in the taskbar.
+        console_just_freed = true;
+        const auto windows = QGuiApplication::topLevelWindows();
+        for (QWindow *window : windows)
+            if (window->isVisible())
+                window->alert(0);
+    }
+}
+
+QString Nax5AuthController::balanceText() const
+{
+    return balance_seconds < 0 ? QString() : nax5FormatPlayTime(balance_seconds);
+}
+
+void Nax5AuthController::refreshAccount()
+{
+    if (!authenticated() || session_token.isEmpty() || me_request_id != 0)
+        return;
+    // Its own id: a login or logout that starts meanwhile aborts this request without an answer,
+    // and that must leave no state behind.
+    refresh_request_id = api->fetchMe(session_token);
 }
 
 void Nax5AuthController::clearSessionToken()
@@ -138,6 +192,7 @@ void Nax5AuthController::logout()
 {
     login_request_id = 0;
     me_request_id = 0;
+    refresh_request_id = 0;
     restoring_session = false;
     const QString token = session_token;
     clearSessionToken();
@@ -190,6 +245,21 @@ void Nax5AuthController::onLoginFinished(quint64 request_id, const Nax5LoginPars
 
 void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResult &result)
 {
+    if (request_id != 0 && request_id == refresh_request_id)
+    {
+        // A background refresh: a failure must not log the player out.
+        refresh_request_id = 0;
+        if (result.ok && authenticated())
+        {
+            access_status = result.access_status;
+            email_verified = result.email_verified;
+            balance_seconds = result.balance_seconds;
+            billing_enforced = result.billing_enforced;
+            setConsole(result.console_state, result.console_free_in_seconds, true);
+            emit accountChanged();
+        }
+        return;
+    }
     if (request_id != me_request_id)
         return;
     me_request_id = 0;
@@ -214,6 +284,9 @@ void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResul
     account_city = result.city;
     access_status = result.access_status;
     email_verified = result.email_verified;
+    balance_seconds = result.balance_seconds;
+    billing_enforced = result.billing_enforced;
+    setConsole(result.console_state, result.console_free_in_seconds, false);
     emit accountChanged();
     setError(Nax5AuthErrorNone);
     setState(nax5AuthReduce(auth_state, Nax5AuthActionLoginSucceeded));

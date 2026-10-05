@@ -12,6 +12,36 @@ Rectangle {
     Material.theme: Material.Dark
     Material.accent: "#00a7ff"
 
+    // Back from the browser after a top-up: show the new balance without a restart.
+    Connections {
+        target: Qt.application
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive && Nax5Auth.authenticated)
+                Nax5Auth.refreshAccount();
+        }
+    }
+
+    // The console gets taken and freed while the launcher is open: keep the status line truthful.
+    // Runs in the background too, so that a waiting player is told when the console gets free.
+    Timer {
+        interval: 30000
+        repeat: true
+        running: Nax5Auth.authenticated && !Nax5Session.reserved && !Nax5Session.reserving
+        onTriggered: Nax5Auth.refreshAccount()
+    }
+
+    Connections {
+        target: Nax5Session
+        // A refusal or the end of a game: the status and the balance have just changed.
+        function onErrorMessageChanged() { Nax5Auth.refreshAccount(); }
+        property bool wasReserved: false
+        function onStateChanged() {
+            if (wasReserved && !Nax5Session.reserved)
+                Nax5Auth.refreshAccount();
+            wasReserved = Nax5Session.reserved;
+        }
+    }
+
     ColumnLayout {
         id: column
         anchors.left: parent.left
@@ -35,6 +65,71 @@ Rectangle {
             text: !Nax5Auth.emailVerified ? qsTr("Подтвердите email") : qsTr("Аккаунт ещё не активен")
         }
 
+        RowLayout {
+            visible: Nax5Auth.authenticated && Nax5Auth.billingEnforced
+            Layout.fillWidth: true
+            spacing: 12
+
+            Label {
+                text: Nax5Session.remainingText.length > 0
+                      ? qsTr("Осталось в этой игре: %1").arg(Nax5Session.remainingText)
+                      : qsTr("Игровое время: %1").arg(Nax5Auth.balanceText.length > 0 ? Nax5Auth.balanceText : "—")
+                color: Nax5Session.topUpSuggested ? "#ffcc80" : "#eeeeee"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            Button {
+                text: qsTr("Пополнить")
+                flat: !Nax5Session.topUpSuggested
+                Material.background: Nax5Session.topUpSuggested ? Material.accent : undefined
+                Material.roundedScale: Material.SmallScale
+                onClicked: Qt.openUrlExternally(Nax5Session.topUpUrl)
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        Rectangle {
+            id: consoleStatus
+            // Free: green. Taken: amber, a wait and not a fault. Switched off: red.
+            readonly property color tone: Nax5Auth.consoleState === "free" ? "#b9f6ca"
+                                          : Nax5Auth.consoleState === "offline" ? "#ff8a80" : "#ffcc80"
+            visible: Nax5Auth.authenticated && Nax5Auth.consoleText.length > 0
+                     && !Nax5Session.reserved && !Nax5Session.updateRequired
+            Layout.fillWidth: true
+            implicitHeight: consoleStatusRow.implicitHeight + 16
+            radius: 6
+            color: Qt.rgba(tone.r, tone.g, tone.b, 0.10)
+            border.width: 1
+            border.color: Qt.rgba(tone.r, tone.g, tone.b, 0.55)
+
+            RowLayout {
+                id: consoleStatusRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: 12
+                spacing: 10
+
+                Rectangle {
+                    width: 10
+                    height: 10
+                    radius: 5
+                    color: consoleStatus.tone
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: Nax5Auth.consoleText
+                    color: consoleStatus.tone
+                    font.pixelSize: 15
+                    font.bold: true
+                }
+            }
+        }
+
         Label {
             visible: Nax5Session.statusText.length > 0
             Layout.fillWidth: true
@@ -42,6 +137,13 @@ Rectangle {
             text: Nax5Session.statusText
             color: Nax5Session.reserved ? "#b9f6ca" : "#eeeeee"
             font.pixelSize: 18
+        }
+
+        Label {
+            visible: Nax5Session.retrySeconds > 0
+            Layout.fillWidth: true
+            color: "#c5c5c5"
+            text: qsTr("Повторить можно через %1 с").arg(Nax5Session.retrySeconds)
         }
 
         Label {
@@ -86,7 +188,10 @@ Rectangle {
                 enabled: Nax5Session.playEnabled
                 Material.background: Material.accent
                 Material.roundedScale: Material.SmallScale
-                onClicked: Nax5Session.play()
+                onClicked: {
+                    Nax5Auth.consoleNoticeSeen();
+                    Nax5Session.play();
+                }
             }
 
             Button {

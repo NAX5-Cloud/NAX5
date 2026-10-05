@@ -22,6 +22,10 @@ class Nax5AuthController : public QObject
     Q_PROPERTY(QString city READ city NOTIFY accountChanged)
     Q_PROPERTY(QString accessStatus READ accessStatus NOTIFY accountChanged)
     Q_PROPERTY(bool emailVerified READ emailVerified NOTIFY accountChanged)
+    Q_PROPERTY(bool billingEnforced READ billingEnforced NOTIFY accountChanged)
+    Q_PROPERTY(QString balanceText READ balanceText NOTIFY accountChanged)
+    Q_PROPERTY(QString consoleState READ consoleState NOTIFY accountChanged)
+    Q_PROPERTY(QString consoleText READ consoleText NOTIFY accountChanged)
     Q_PROPERTY(bool rememberEnabled READ rememberEnabled WRITE setRememberEnabled NOTIFY rememberEnabledChanged)
     Q_PROPERTY(QString savedEmail READ savedEmail NOTIFY savedCredentialsChanged)
     Q_PROPERTY(QString savedPassword READ savedPassword NOTIFY savedCredentialsChanged)
@@ -39,6 +43,11 @@ public:
     QString city() const { return account_city; }
     QString accessStatus() const { return access_status; }
     bool emailVerified() const { return email_verified; }
+    bool billingEnforced() const { return billing_enforced; }
+    qint64 balanceSeconds() const { return balance_seconds; }
+    QString balanceText() const;
+    QString consoleState() const { return console_state; }
+    QString consoleText() const;
     bool rememberEnabled() const { return remember_enabled; }
     QString savedEmail() const;
     QString savedPassword() const;
@@ -49,6 +58,10 @@ public:
     Q_INVOKABLE void login(const QString &email, const QString &password, bool remember = false);
     Q_INVOKABLE void tryRestoreSession();
     Q_INVOKABLE void logout();
+    // Re-reads the account (play time) without touching the login state.
+    Q_INVOKABLE void refreshAccount();
+    // The player has reacted to "the console got free": back to the plain status line.
+    Q_INVOKABLE void consoleNoticeSeen();
 
 signals:
     void stateChanged();
@@ -66,6 +79,7 @@ private:
     void onMeFinished(quint64 request_id, const Nax5MeParseResult &result);
     void onLogoutFinished(quint64 request_id);
     void persistCredentialsIfNeeded();
+    void setConsole(const QString &state, qint64 free_in_seconds, bool announce);
     void tryPasswordLoginAfterRestoreFailure();
 
     Nax5ApiClient *api;
@@ -77,6 +91,12 @@ private:
     QString account_city;
     QString access_status;
     bool email_verified;
+    qint64 balance_seconds = -1;
+    bool billing_enforced = false;
+    QString console_state;
+    qint64 console_free_in_seconds = -1;
+    bool console_just_freed = false;
+    quint64 refresh_request_id = 0;
     bool remember_enabled;
     bool restoring_session;
     bool fresh_login;
