@@ -35,6 +35,31 @@ Rectangle {
             text: !Nax5Auth.emailVerified ? qsTr("Подтвердите email") : qsTr("Аккаунт ещё не активен")
         }
 
+        RowLayout {
+            visible: Nax5Auth.authenticated && Nax5Auth.billingEnforced
+            Layout.fillWidth: true
+            spacing: 12
+
+            Label {
+                text: Nax5Session.remainingText.length > 0
+                      ? qsTr("Осталось в этой игре: %1").arg(Nax5Session.remainingText)
+                      : qsTr("Игровое время: %1").arg(Nax5Auth.balanceText.length > 0 ? Nax5Auth.balanceText : "—")
+                color: Nax5Session.topUpSuggested ? "#ffcc80" : "#eeeeee"
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            Button {
+                text: qsTr("Пополнить")
+                flat: !Nax5Session.topUpSuggested
+                Material.background: Nax5Session.topUpSuggested ? Material.accent : undefined
+                Material.roundedScale: Material.SmallScale
+                onClicked: Qt.openUrlExternally(Nax5Session.topUpUrl)
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
         Label {
             visible: Nax5Session.statusText.length > 0
             Layout.fillWidth: true

@@ -26,12 +26,16 @@ struct Nax5MeParseResult
     QString city;
     QString access_status;
     bool email_verified;
+    qint64 balance_seconds;  // -1 when the server does not report play time
+    bool billing_enforced;
 
     Nax5MeParseResult()
         : ok(false)
         , network_failure(false)
         , user_id(0)
         , email_verified(false)
+        , balance_seconds(-1)
+        , billing_enforced(false)
     {
     }
 };

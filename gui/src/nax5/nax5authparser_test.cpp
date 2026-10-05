@@ -242,6 +242,19 @@ static void test_remembered_login_never_persists_secrets()
     expect(!settings.contains(QStringLiteral("auth/session_token")), "legacy token key removed");
 }
 
+static void test_me_play_time()
+{
+    const char *old_backend =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true}";
+    const Nax5MeParseResult before = nax5ParseMeResponse(200, old_backend);
+    expect(before.ok && before.balance_seconds == -1 && !before.billing_enforced, "me without play time still parses");
+    const char *body =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,"
+        "\"balanceSeconds\":4320,\"billingEnforced\":true}";
+    const Nax5MeParseResult result = nax5ParseMeResponse(200, body);
+    expect(result.ok && result.balance_seconds == 4320 && result.billing_enforced, "me carries play time");
+}
+
 int main()
 {
     test_login_success();
@@ -264,6 +277,7 @@ int main()
     test_invalid_env_does_not_fall_back_to_production();
     test_spaces_and_empty_env_are_controlled();
     test_remembered_login_never_persists_secrets();
+    test_me_play_time();
     if (g_failed)
     {
         std::fprintf(stderr, "%d NAX5 auth tests failed\n", g_failed);

@@ -59,6 +59,41 @@ static void test_eligibility_denied()
     expect(nax5ParseReserveResponse(403, body).error == Nax5SessionErrorUserNotEligible, "eligibility");
 }
 
+static void test_play_time_answers()
+{
+    const Nax5SessionParseResult denied = nax5ParseReserveResponse(403,
+        "{\"code\":\"INSUFFICIENT_BALANCE\",\"message\":\"x\",\"balanceSeconds\":30}");
+    expect(denied.error == Nax5SessionErrorInsufficientBalance && denied.balance_seconds == 30, "no play time is its own error");
+    expect(nax5ParseReserveResponse(429, "{\"code\":\"RATE_LIMITED\",\"reason\":\"SESSION_COOLDOWN\"}").error
+               == Nax5SessionErrorSessionCooldown, "cooldown after the shared limit");
+    expect(nax5ParseReserveResponse(429, "{\"code\":\"RATE_LIMITED\"}").error == Nax5SessionErrorRateLimited, "plain 429 unchanged");
+
+    const char *beat =
+        "{\"session\":{\"id\":\"s\",\"status\":\"ACTIVE\",\"reservedAt\":\"2026-10-05T10:00:00Z\"},"
+        "\"console\":{\"code\":\"PS5\",\"region\":\"MSK\"},\"remainingSeconds\":299}";
+    expect(nax5ParseCancelResponse(200, beat).remaining_seconds == 299, "heartbeat carries the time left");
+    const char *old_beat =
+        "{\"session\":{\"id\":\"s\",\"status\":\"ACTIVE\",\"reservedAt\":\"2026-10-05T10:00:00Z\"},"
+        "\"console\":{\"code\":\"PS5\",\"region\":\"MSK\"},\"remainingSeconds\":null}";
+    expect(nax5ParseCancelResponse(200, old_beat).remaining_seconds == -1, "no time left reported while nothing is charged");
+
+    const Nax5SessionParseResult closed = nax5ParseCancelResponse(404,
+        "{\"code\":\"SESSION_NOT_FOUND\",\"message\":\"x\",\"reason\":\"BALANCE_EXHAUSTED\"}");
+    expect(closed.error == Nax5SessionErrorNotFound && nax5SessionClosedForBalance(closed.reason), "closing answer names the reason");
+    expect(!nax5SessionClosedForBalance(QStringLiteral("SESSION_LIMIT_REACHED")), "shared limit is not a balance stop");
+    expect(nax5SessionClosedText(QString()) == QStringLiteral("Сессия завершена сервером"), "unknown reason keeps the old text");
+
+    expect(nax5FormatPlayTime(4320) == QStringLiteral("1 ч 12 мин"), "format hours and minutes");
+    expect(nax5FormatPlayTime(3600) == QStringLiteral("1 ч"), "format whole hours");
+    expect(nax5FormatPlayTime(599) == QStringLiteral("9 мин"), "format never rounds up");
+    expect(nax5LowTimeThreshold(320, 300) == 300, "five minute warning");
+    expect(nax5LowTimeThreshold(300, 280) == 0, "five minute warning only once");
+    expect(nax5LowTimeThreshold(80, 60) == 60, "one minute warning");
+    expect(nax5LowTimeThreshold(-1, 200) == 300, "a session that starts short warns at once");
+    expect(nax5LowTimeThreshold(-1, 4000) == 0, "no warning with plenty of time");
+    expect(nax5LowTimeThreshold(100, -1) == 0, "no warning when time is not reported");
+}
+
 static void test_unauthenticated()
 {
     expect(nax5ParseReserveResponse(401, "{\"code\":\"UNAUTHENTICATED\"}").error == Nax5SessionErrorUnauthenticated, "401");
@@ -406,6 +441,7 @@ int main()
     test_reserve_success();
     test_no_capacity();
     test_eligibility_denied();
+    test_play_time_answers();
     test_unauthenticated();
     test_required_update();
     test_conflict_and_rate_limit_and_server();

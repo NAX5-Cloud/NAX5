@@ -22,6 +22,8 @@ class Nax5AuthController : public QObject
     Q_PROPERTY(QString city READ city NOTIFY accountChanged)
     Q_PROPERTY(QString accessStatus READ accessStatus NOTIFY accountChanged)
     Q_PROPERTY(bool emailVerified READ emailVerified NOTIFY accountChanged)
+    Q_PROPERTY(bool billingEnforced READ billingEnforced NOTIFY accountChanged)
+    Q_PROPERTY(QString balanceText READ balanceText NOTIFY accountChanged)
     Q_PROPERTY(bool rememberEnabled READ rememberEnabled WRITE setRememberEnabled NOTIFY rememberEnabledChanged)
     Q_PROPERTY(QString savedEmail READ savedEmail NOTIFY savedCredentialsChanged)
     Q_PROPERTY(QString savedPassword READ savedPassword NOTIFY savedCredentialsChanged)
@@ -39,6 +41,9 @@ public:
     QString city() const { return account_city; }
     QString accessStatus() const { return access_status; }
     bool emailVerified() const { return email_verified; }
+    bool billingEnforced() const { return billing_enforced; }
+    qint64 balanceSeconds() const { return balance_seconds; }
+    QString balanceText() const;
     bool rememberEnabled() const { return remember_enabled; }
     QString savedEmail() const;
     QString savedPassword() const;
@@ -49,6 +54,8 @@ public:
     Q_INVOKABLE void login(const QString &email, const QString &password, bool remember = false);
     Q_INVOKABLE void tryRestoreSession();
     Q_INVOKABLE void logout();
+    // Re-reads the account (play time) without touching the login state.
+    void refreshAccount();
 
 signals:
     void stateChanged();
@@ -77,6 +84,9 @@ private:
     QString account_city;
     QString access_status;
     bool email_verified;
+    qint64 balance_seconds = -1;
+    bool billing_enforced = false;
+    bool refreshing_account = false;
     bool remember_enabled;
     bool restoring_session;
     bool fresh_login;

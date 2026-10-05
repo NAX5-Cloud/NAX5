@@ -419,6 +419,46 @@ Item {
             sourceComponent: placeboColorMappingDialogComponent
         }
     }
+    // NAX5: "five minutes / one minute of play time left", shown over the stream.
+    Rectangle {
+        id: nax5TimeNotice
+        z: 1000
+        anchors {
+            top: parent.top
+            horizontalCenter: parent.horizontalCenter
+            topMargin: 30
+        }
+        color: "#e65100"
+        width: nax5TimeNoticeLabel.width + 40
+        height: nax5TimeNoticeLabel.height + 20
+        radius: 8
+        opacity: nax5TimeNoticeTimer.running ? 0.92 : 0.0
+        visible: opacity > 0
+
+        Behavior on opacity { NumberAnimation { duration: 400 } }
+
+        Label {
+            id: nax5TimeNoticeLabel
+            anchors.centerIn: parent
+            color: "#ffffff"
+            font.bold: true
+            font.pixelSize: 20
+        }
+
+        Timer {
+            id: nax5TimeNoticeTimer
+            interval: 12000
+        }
+
+        Connections {
+            target: Nax5Session
+            function onTimeNoticeChanged() {
+                nax5TimeNoticeLabel.text = Nax5Session.timeNotice;
+                nax5TimeNoticeTimer.restart();
+            }
+        }
+    }
+
     Rectangle {
         anchors {
             bottom: parent.bottom

@@ -564,6 +564,8 @@ void Nax5SessionController::play()
     if (streamSessionAlive())
         return;
 
+    setTopUpSuggested(false);
+    setRemainingSeconds(-1);
     if (!diagnostic_report_id.isEmpty() && !diagnostic_finalized)
         submitClientReport(Nax5ClientReportKindQuit);
     if (auth && auth->userId() > 0)
@@ -801,6 +803,10 @@ void Nax5SessionController::handleTerminalFinished(quint64 request_id, const Nax
         return;
     if (!nax5TerminalShouldRetry(result.error))
     {
+        // The session is over on the server: show the play time it left.
+        setRemainingSeconds(-1);
+        if (auth)
+            auth->refreshAccount();
         // The server gave a final answer (done, already ended, not found): nothing to resend.
         QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
             Nax5Runtime::settingsOrganizationName(), Nax5Runtime::settingsApplicationName());
@@ -1124,7 +1130,15 @@ void Nax5SessionController::onReserveFinished(quint64 request_id, const Nax5Sess
     clearAssignment();
     update_url = result.update_url;
     setError(result.error);
-        if (result.error == Nax5SessionErrorNoCapacity || result.error == Nax5SessionErrorUserNotEligible || result.error == Nax5SessionErrorUnauthenticated)
+    if (result.error == Nax5SessionErrorInsufficientBalance)
+    {
+        setTopUpSuggested(true);
+        if (auth)
+            auth->refreshAccount();
+    }
+    if (result.error == Nax5SessionErrorNoCapacity || result.error == Nax5SessionErrorUserNotEligible
+        || result.error == Nax5SessionErrorInsufficientBalance || result.error == Nax5SessionErrorSessionCooldown
+        || result.error == Nax5SessionErrorUnauthenticated)
     {
         setStatusText(errorText(result.error));
         setState(nax5SessionReduce(session_state, result.error == Nax5SessionErrorNoCapacity ? Nax5GameSessionActionReserveNoCapacity : Nax5GameSessionActionReserveDenied));
@@ -1373,14 +1387,45 @@ void Nax5SessionController::onHeartbeatFinished(quint64 request_id, const Nax5Se
         return;
     if (nax5HeartbeatSessionClosed(result.error))
     {
-        endSessionClosedByBackend();
+        endSessionClosedByBackend(result.reason);
         return;
     }
+    if (result.error == Nax5SessionErrorNone)
+        setRemainingSeconds(result.remaining_seconds);
     sampleStreamStats();
     scheduleHeartbeat(result.error == Nax5SessionErrorNone ? kHeartbeatIntervalMs : kHeartbeatRetryMs);
 }
 
-void Nax5SessionController::endSessionClosedByBackend()
+QString Nax5SessionController::remainingText() const
+{
+    return remaining_seconds < 0 ? QString() : nax5FormatPlayTime(remaining_seconds);
+}
+
+void Nax5SessionController::setRemainingSeconds(qint64 seconds)
+{
+    const int threshold = nax5LowTimeThreshold(remaining_seconds, seconds);
+    if (remaining_seconds != seconds)
+    {
+        remaining_seconds = seconds;
+        emit playTimeChanged();
+    }
+    if (threshold != 0)
+    {
+        // Always emitted, even with the same text: the view shows it again.
+        time_notice = nax5LowTimeNotice(threshold);
+        emit timeNoticeChanged();
+    }
+}
+
+void Nax5SessionController::setTopUpSuggested(bool suggested)
+{
+    if (top_up_suggested == suggested)
+        return;
+    top_up_suggested = suggested;
+    emit playTimeChanged();
+}
+
+void Nax5SessionController::endSessionClosedByBackend(const QString &reason)
 {
     // The backend already ended this session (admin, expiry) and may hand the
     // console to someone else: stop streaming instead of heartbeating a 404 forever.
@@ -1392,7 +1437,11 @@ void Nax5SessionController::endSessionClosedByBackend()
     discardMaterial();
     clearAssignment();
     setError(Nax5SessionErrorNone);
-    setStatusText(QStringLiteral("Сессия завершена сервером"));
+    setStatusText(nax5SessionClosedText(reason));
+    setRemainingSeconds(-1);
+    setTopUpSuggested(nax5SessionClosedForBalance(reason));
+    if (auth)
+        auth->refreshAccount();
     setState(nax5SessionReduce(session_state, Nax5GameSessionActionStreamEnded));
     if (streamSessionAlive())
         backend->stopSession(false);

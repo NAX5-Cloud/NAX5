@@ -1,4 +1,5 @@
 #include "nax5/nax5authcontroller.h"
+#include "nax5/session/nax5sessionlifecycle.h"
 #include "nax5/nax5apiclient.h"
 #include "nax5/nax5authparser.h"
 #include "nax5/nax5authstore.h"
@@ -77,7 +78,22 @@ void Nax5AuthController::clearAccount()
     account_city.clear();
     access_status.clear();
     email_verified = false;
+    balance_seconds = -1;
+    billing_enforced = false;
     emit accountChanged();
+}
+
+QString Nax5AuthController::balanceText() const
+{
+    return balance_seconds < 0 ? QString() : nax5FormatPlayTime(balance_seconds);
+}
+
+void Nax5AuthController::refreshAccount()
+{
+    if (!authenticated() || session_token.isEmpty() || me_request_id != 0)
+        return;
+    refreshing_account = true;
+    me_request_id = api->fetchMe(session_token);
 }
 
 void Nax5AuthController::clearSessionToken()
@@ -193,6 +209,20 @@ void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResul
     if (request_id != me_request_id)
         return;
     me_request_id = 0;
+    if (refreshing_account)
+    {
+        // A background refresh: a failure must not log the player out.
+        refreshing_account = false;
+        if (result.ok)
+        {
+            access_status = result.access_status;
+            email_verified = result.email_verified;
+            balance_seconds = result.balance_seconds;
+            billing_enforced = result.billing_enforced;
+            emit accountChanged();
+        }
+        return;
+    }
     if (!result.ok)
     {
         if (restoring_session)
@@ -214,6 +244,8 @@ void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResul
     account_city = result.city;
     access_status = result.access_status;
     email_verified = result.email_verified;
+    balance_seconds = result.balance_seconds;
+    billing_enforced = result.billing_enforced;
     emit accountChanged();
     setError(Nax5AuthErrorNone);
     setState(nax5AuthReduce(auth_state, Nax5AuthActionLoginSucceeded));

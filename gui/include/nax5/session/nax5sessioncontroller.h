@@ -45,6 +45,10 @@ class Nax5SessionController : public QObject
     Q_PROPERTY(QString sessionId READ sessionId NOTIFY assignmentChanged)
     Q_PROPERTY(bool updateRequired READ updateRequired NOTIFY stateChanged)
     Q_PROPERTY(QString updateUrl READ updateUrl NOTIFY stateChanged)
+    Q_PROPERTY(QString remainingText READ remainingText NOTIFY playTimeChanged)
+    Q_PROPERTY(bool topUpSuggested READ topUpSuggested NOTIFY playTimeChanged)
+    Q_PROPERTY(QString topUpUrl READ topUpUrl CONSTANT)
+    Q_PROPERTY(QString timeNotice READ timeNotice NOTIFY timeNoticeChanged)
 
 public:
     explicit Nax5SessionController(Nax5AuthController *auth, QmlBackend *backend, QObject *parent = nullptr);
@@ -66,6 +70,10 @@ public:
     QString sessionId() const { return session_id; }
     bool updateRequired() const { return current_error == Nax5SessionErrorClientUpdateRequired; }
     QString updateUrl() const { return update_url; }
+    QString remainingText() const;
+    bool topUpSuggested() const { return top_up_suggested; }
+    QString topUpUrl() const { return QStringLiteral("https://www.cloudgta6.com/account/"); }
+    QString timeNotice() const { return time_notice; }
 
     Q_INVOKABLE void play();
     Q_INVOKABLE void release();
@@ -81,6 +89,8 @@ signals:
     void statusTextChanged();
     void errorMessageChanged();
     void assignmentChanged();
+    void playTimeChanged();
+    void timeNoticeChanged();
     void diagnosticCaptureRequested(const QString &root, qint64 owner);
     void diagnosticCaptureFinished(bool ok);
 
@@ -128,7 +138,9 @@ private:
     void onStreamQuit(ChiakiQuitReason reason, const QString &reason_str);
     void reportFail();
     void reportEnd();
-    void endSessionClosedByBackend();
+    void endSessionClosedByBackend(const QString &reason);
+    void setRemainingSeconds(qint64 seconds);
+    void setTopUpSuggested(bool suggested);
     void stopStalledStream();
     void dispatchTerminal(Nax5TerminalMutation mutation, bool silent);
     void sendPendingTerminal();
@@ -191,6 +203,9 @@ private:
     QString error_message;
     Nax5SessionError current_error = Nax5SessionErrorNone;
     QString update_url;
+    qint64 remaining_seconds = -1;
+    bool top_up_suggested = false;
+    QString time_notice;
     QString console_code;
     QString console_region;
     QString session_id;

@@ -1,3 +1,4 @@
+#include <limits>
 #include "nax5/session/nax5sessionlifecycle.h"
 
 #include <QDateTime>
@@ -273,4 +274,52 @@ void nax5ClearTerminal(QSettings &settings, const QString &session_id)
         settings.remove(QString());
     settings.endGroup();
     settings.sync();
+}
+
+QString nax5FormatPlayTime(qint64 seconds)
+{
+    const qint64 total = qMax<qint64>(seconds, 0) / 60;
+    const qint64 hours = total / 60;
+    const qint64 minutes = total % 60;
+    if (hours > 0 && minutes > 0)
+        return QStringLiteral("%1 ч %2 мин").arg(hours).arg(minutes);
+    if (hours > 0)
+        return QStringLiteral("%1 ч").arg(hours);
+    return QStringLiteral("%1 мин").arg(minutes);
+}
+
+int nax5LowTimeThreshold(qint64 previous_remaining, qint64 remaining)
+{
+    if (remaining < 0)
+        return 0;
+    // No previous value means the session has just started: warn at once if it starts short.
+    const qint64 before = previous_remaining < 0 ? std::numeric_limits<qint64>::max() : previous_remaining;
+    if (remaining <= 60 && before > 60)
+        return 60;
+    if (remaining <= 300 && before > 300)
+        return 300;
+    return 0;
+}
+
+QString nax5LowTimeNotice(int threshold)
+{
+    if (threshold == 60)
+        return QStringLiteral("Осталась 1 минута игрового времени. Сохранитесь: игра остановится.");
+    if (threshold == 300)
+        return QStringLiteral("Осталось 5 минут игрового времени.");
+    return QString();
+}
+
+bool nax5SessionClosedForBalance(const QString &reason)
+{
+    return reason == QLatin1String("BALANCE_EXHAUSTED");
+}
+
+QString nax5SessionClosedText(const QString &reason)
+{
+    if (nax5SessionClosedForBalance(reason))
+        return QStringLiteral("Игровое время закончилось");
+    if (reason == QLatin1String("SESSION_LIMIT_REACHED"))
+        return QStringLiteral("Сессия завершена: вы играли больше 3 часов, а консоль ждут другие игроки");
+    return QStringLiteral("Сессия завершена сервером");
 }
