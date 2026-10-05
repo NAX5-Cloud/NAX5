@@ -96,3 +96,9 @@ QString nax5LowTimeNotice(int threshold);
 // What to tell the player when the server ended the session; `reason` comes from the closing answer.
 QString nax5SessionClosedText(const QString &reason);
 bool nax5SessionClosedForBalance(const QString &reason);
+
+// A crash inside the GPU vendor's Vulkan driver while the Vulkan video decoder was in use: the fix that
+// works in the field is the Direct3D decoder. Returns the decoder to switch to, or an empty string.
+QString nax5DecoderAfterCrash(const QString &current_decoder, const QString &fault_module);
+// How long «Играть» stays blocked after the server refused; the server's own pause when it tells one.
+int nax5ReserveRetryPauseMs(qint64 retry_after_seconds);

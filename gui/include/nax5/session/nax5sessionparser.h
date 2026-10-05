@@ -32,6 +32,7 @@ struct Nax5SessionParseResult
     qint64 remaining_seconds;  // play time left in the running session; -1 when not reported
     qint64 balance_seconds;    // sent with INSUFFICIENT_BALANCE; -1 otherwise
     QString reason;            // why the server ended or refused the session, when it says so
+    qint64 retry_after_seconds; // the server's pause before the next reserve; -1 when not sent
 
     Nax5SessionParseResult()
         : error(Nax5SessionErrorInvalidResponse)
@@ -39,6 +40,7 @@ struct Nax5SessionParseResult
         , has_console(false)
         , remaining_seconds(-1)
         , balance_seconds(-1)
+        , retry_after_seconds(-1)
     {
     }
 };

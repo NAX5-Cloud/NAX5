@@ -49,6 +49,7 @@ class Nax5SessionController : public QObject
     Q_PROPERTY(bool topUpSuggested READ topUpSuggested NOTIFY playTimeChanged)
     Q_PROPERTY(QString topUpUrl READ topUpUrl CONSTANT)
     Q_PROPERTY(QString timeNotice READ timeNotice NOTIFY timeNoticeChanged)
+    Q_PROPERTY(int retrySeconds READ retrySeconds NOTIFY retryChanged)
 
 public:
     explicit Nax5SessionController(Nax5AuthController *auth, QmlBackend *backend, QObject *parent = nullptr);
@@ -74,6 +75,7 @@ public:
     bool topUpSuggested() const { return top_up_suggested; }
     QString topUpUrl() const { return QStringLiteral("https://www.cloudgta6.com/account/"); }
     QString timeNotice() const { return time_notice; }
+    int retrySeconds() const;
 
     Q_INVOKABLE void play();
     Q_INVOKABLE void release();
@@ -91,6 +93,7 @@ signals:
     void assignmentChanged();
     void playTimeChanged();
     void timeNoticeChanged();
+    void retryChanged();
     void diagnosticCaptureRequested(const QString &root, qint64 owner);
     void diagnosticCaptureFinished(bool ok);
 
@@ -141,6 +144,8 @@ private:
     void endSessionClosedByBackend(const QString &reason);
     void setRemainingSeconds(qint64 seconds);
     void setTopUpSuggested(bool suggested);
+    void startReservePause(qint64 retry_after_seconds);
+    void applyCrashDecoderFallback();
     void stopStalledStream();
     void dispatchTerminal(Nax5TerminalMutation mutation, bool silent);
     void sendPendingTerminal();
@@ -179,6 +184,7 @@ private:
     QTimer *lease_timer;
     QTimer *heartbeat_timer;
     QTimer *reserve_backoff_timer;
+    QTimer *retry_tick_timer;
     QTimer *telemetry_flush_timer;
     QTimer *diagnostic_timer;
     QTimer *report_queue_timer;

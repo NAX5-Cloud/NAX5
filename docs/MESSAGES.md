@@ -20,6 +20,7 @@ New codes are added at the end only: the numbers are used in log analysis.
 | 16 | ClientUpdateRequired | 426 `CLIENT_UPDATE_REQUIRED` | Доступно обязательное обновление NAX5… |
 | 17 | InsufficientBalance (build 16) | 403 `INSUFFICIENT_BALANCE` | Игровое время закончилось. Пополните его в аккаунте на сайте и нажмите «Играть». |
 | 18 | SessionCooldown (build 16) | 429 with `reason: SESSION_COOLDOWN` | Консоль ждут другие игроки. Вы играли больше 3 часов, попробуйте снова через 10 минут. |
+| 19 | ConsoleOffline (build 16) | 409 `CONSOLE_OFFLINE` | Консоль сейчас выключена. Мы уже знаем об этом и включим её. Попробуйте позже. |
 
 Notes:
 
@@ -27,7 +28,8 @@ Notes:
   «аккаунт пока не может получить консоль» when there is no play time.
 - Code 10 on a heartbeat is not an error: it means the server closed the session, and the launcher stops the
   stream.
-- Code 6 right after code 1 is the server's 60 second pause after «no console», not a fault.
+- Code 6 right after code 1 is the server's 60 second pause after «no console», not a fault. From build 16 the
+  button is blocked for that minute with «Повторить можно через N с», so code 6 should become rare.
 
 ## Status line
 
@@ -39,6 +41,8 @@ Notes:
 | Игра | first frame decoded |
 | Освобождаем консоль... | ending or cancelling |
 | Сессия завершена сервером | heartbeat 404 without a reason |
+| Консоль выключили или перевели в режим покоя. Пожалуйста, не выключайте её: после игры просто закройте лаунчер. | the console ended the stream itself, quit reason 12 (build 16) |
+| После сбоя видеодрайвера декодер переключён на Direct3D. Нажмите «Играть». | first login after a crash in a Vulkan driver (build 16) |
 | Игровое время закончилось | heartbeat 404, `BALANCE_EXHAUSTED` (build 16) |
 | Сессия завершена: вы играли больше 3 часов, а консоль ждут другие игроки | heartbeat 404, `SESSION_LIMIT_REACHED` (build 16) |
 

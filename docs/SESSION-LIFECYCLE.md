@@ -56,16 +56,19 @@ The launcher never puts the shared console to sleep. `GoToBed()` is reachable in
   connection that does not come up.
 - What the player does on the console itself, including «Turn off PS5» in the console's own menu.
 
-Both are visible only from the console's side of the network.
+Both are visible only from the console's side of the network. An agent there reports the console's power
+state to the backend, which then refuses to hand out a switched-off console (`CONSOLE_OFFLINE`). When the
+console ends a running stream itself, chiaki reports quit reason 12 and the launcher says so.
 
 ## Pressing «Играть» again
 
 - While a session is still active on the server, a new press ends the old session first; the server records the
   old one as `FAILED / CONNECTION_FAILED` even though it was streaming. In the admin that row is not a
   connection error.
-- After «no console available» the server refuses the same player for 60 seconds with 429. The launcher
-  blocks the button for 5 seconds only, so a player who keeps pressing sees «Слишком много попыток» until the
-  minute is over, and each press uploads a `reserve-fail` report. Known issue KI-015.
+- After «no console available» the server refuses the same player for 60 seconds with 429. Up to build 15
+  the launcher blocked the button for 5 seconds only, so a player who kept pressing saw «Слишком много
+  попыток» and uploaded a `reserve-fail` report each time. Build 16 blocks the button for the server's pause
+  and shows a countdown.
 
 ## Timers
 
@@ -73,6 +76,6 @@ Both are visible only from the console's side of the network.
 | --- | --- | --- |
 | Heartbeat | 20 s, retry 5 s | `kHeartbeatIntervalMs`, `kHeartbeatRetryMs` |
 | Stalled stream | 60 s without a decoded frame | `nax5StreamStallTimeoutMs()` |
-| Button pause after «no console» | 5 s | `kNoCapacityBackoffMs` |
+| Button pause after a refusal | the server's `retryAfterSeconds`, else 60 s (5 s up to build 15) | `nax5ReserveRetryPauseMs()` |
 | Server leases | 120 s reserved, 180 s connecting, 60 s active | backend settings |
 | Server pause after «no console» | 60 s | backend `SESSION_RESERVE_BACKOFF_SECONDS` |

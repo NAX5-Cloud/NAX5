@@ -79,6 +79,13 @@ Rectangle {
         }
 
         Label {
+            visible: Nax5Session.retrySeconds > 0
+            Layout.fillWidth: true
+            color: "#c5c5c5"
+            text: qsTr("Повторить можно через %1 с").arg(Nax5Session.retrySeconds)
+        }
+
+        Label {
             visible: Nax5Session.reserved && Nax5Session.consoleCode.length > 0
             text: Nax5Session.consoleRegion.length > 0
                   ? qsTr("%1 · %2").arg(Nax5Session.consoleCode).arg(Nax5Session.consoleRegion)

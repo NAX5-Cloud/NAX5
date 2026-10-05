@@ -323,3 +323,27 @@ QString nax5SessionClosedText(const QString &reason)
         return QStringLiteral("Сессия завершена: вы играли больше 3 часов, а консоль ждут другие игроки");
     return QStringLiteral("Сессия завершена сервером");
 }
+
+QString nax5DecoderAfterCrash(const QString &current_decoder, const QString &fault_module)
+{
+    if (current_decoder != QLatin1String("auto") && current_decoder != QLatin1String("vulkan"))
+        return QString();
+    QString name = fault_module;
+    name.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    name = name.mid(name.lastIndexOf(QLatin1Char('/')) + 1).toLower();
+    // Intel, AMD, NVIDIA Vulkan drivers and the Vulkan loader.
+    static const char *const prefixes[] = {"igvk", "amdvlk", "nvoglv", "vulkan-1"};
+    for (const char *prefix : prefixes)
+        if (name.startsWith(QLatin1String(prefix)))
+            return QStringLiteral("d3d11va");
+    return QString();
+}
+
+int nax5ReserveRetryPauseMs(qint64 retry_after_seconds)
+{
+    // The server refuses the same player for a minute after "no console"; pressing earlier only earns
+    // "too many attempts".
+    if (retry_after_seconds > 0)
+        return int(qMin<qint64>(retry_after_seconds, 600) * 1000);
+    return 60 * 1000;
+}

@@ -78,6 +78,17 @@ void writeSummary(const wchar_t *path, const SYSTEMTIME &utc)
     CloseHandle(file);
 }
 
+// One more line for the summary, written after the fact: a summary that says "requested" and nothing
+// else means the dump call never returned (seen in the field: the crashing thread held a lock).
+void appendSummaryLine(const wchar_t *path, const char *line)
+{
+    HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    DWORD written = 0;
+    WriteFile(file, line, DWORD(strlen(line)), &written, nullptr);
+    CloseHandle(file);
+}
+
 // Runs on its own healthy stack, so stack overflows are captured too.
 DWORD WINAPI dumpThread(LPVOID)
 {
@@ -93,18 +104,30 @@ DWORD WINAPI dumpThread(LPVOID)
 
     if (write_dump)
     {
+        wchar_t summary_path[MAX_PATH + 72];
+        wcscpy(summary_path, path);
         swprintf(path, sizeof(path) / sizeof(path[0]), L"%ls.dmp", base);
         HANDLE file = CreateFileW(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-        if (file != INVALID_HANDLE_VALUE)
+        if (file == INVALID_HANDLE_VALUE)
+        {
+            char line[64] = {};
+            appendText(line, sizeof(line), "dump_result=create_failed error=%lu\n", GetLastError());
+            appendSummaryLine(summary_path, line);
+        }
+        else
         {
             MINIDUMP_EXCEPTION_INFORMATION info{crash_thread, crash_pointers, FALSE};
             // Stacks, threads and module list only: no heap, so session tokens and
             // Remote Play keys held in heap objects stay out of the dump.
             const auto type = static_cast<MINIDUMP_TYPE>(MiniDumpNormal | MiniDumpWithThreadInfo
                 | MiniDumpWithUnloadedModules);
-            write_dump(GetCurrentProcess(), GetCurrentProcessId(), file, type,
+            const BOOL ok = write_dump(GetCurrentProcess(), GetCurrentProcessId(), file, type,
                 crash_pointers ? &info : nullptr, nullptr, nullptr);
+            const DWORD error = ok ? 0 : GetLastError();
             CloseHandle(file);
+            char line[64] = {};
+            appendText(line, sizeof(line), ok ? "dump_result=ok\n" : "dump_result=write_failed error=0x%08lX\n", error);
+            appendSummaryLine(summary_path, line);
         }
     }
     SetEvent(done_event);

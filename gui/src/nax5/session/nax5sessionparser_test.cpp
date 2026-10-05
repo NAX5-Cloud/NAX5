@@ -94,6 +94,27 @@ static void test_play_time_answers()
     expect(nax5LowTimeThreshold(100, -1) == 0, "no warning when time is not reported");
 }
 
+static void test_build16_decisions()
+{
+    const QString intel = QStringLiteral("C:\\WINDOWS\\System32\\DriverStore\\FileRepository\\iigd_dch.inf_amd64_1bb5\\igvk64.dll");
+    expect(nax5DecoderAfterCrash(QStringLiteral("auto"), intel) == QStringLiteral("d3d11va"), "Intel Vulkan driver crash switches auto to d3d11va");
+    expect(nax5DecoderAfterCrash(QStringLiteral("vulkan"), QStringLiteral("C:/x/amdvlk64.dll")) == QStringLiteral("d3d11va"), "AMD Vulkan driver crash switches vulkan");
+    expect(nax5DecoderAfterCrash(QStringLiteral("auto"), QStringLiteral("C:\\Windows\\SYSTEM32\\ntdll.dll")).isEmpty(), "a crash elsewhere leaves the decoder alone");
+    expect(nax5DecoderAfterCrash(QStringLiteral("d3d11va"), intel).isEmpty(), "already on d3d11va: nothing to do");
+    expect(nax5DecoderAfterCrash(QStringLiteral("none"), intel).isEmpty(), "software decoding chosen by the player is kept");
+    expect(nax5DecoderAfterCrash(QStringLiteral("auto"), QString()).isEmpty(), "no module, no switch");
+
+    expect(nax5ReserveRetryPauseMs(-1) == 60000, "default pause matches the server's minute");
+    expect(nax5ReserveRetryPauseMs(20) == 20000, "the server's own pause wins");
+    expect(nax5ReserveRetryPauseMs(100000) == 600000, "an absurd pause is capped");
+    const Nax5SessionParseResult busy = nax5ParseReserveResponse(409, "{\"code\":\"NO_CAPACITY\",\"retryAfterSeconds\":45}");
+    expect(busy.error == Nax5SessionErrorNoCapacity && busy.retry_after_seconds == 45, "no capacity carries the pause");
+    expect(nax5ParseReserveResponse(429, "{\"code\":\"RATE_LIMITED\",\"retryAfterSeconds\":12}").retry_after_seconds == 12, "429 carries the pause");
+    expect(nax5ParseReserveResponse(409, "{\"code\":\"NO_CAPACITY\"}").retry_after_seconds == -1, "older server: no pause sent");
+    const Nax5SessionParseResult off = nax5ParseReserveResponse(409, "{\"code\":\"CONSOLE_OFFLINE\",\"retryAfterSeconds\":60}");
+    expect(off.error == Nax5SessionErrorConsoleOffline && off.retry_after_seconds == 60, "a switched-off console is its own answer");
+}
+
 static void test_unauthenticated()
 {
     expect(nax5ParseReserveResponse(401, "{\"code\":\"UNAUTHENTICATED\"}").error == Nax5SessionErrorUnauthenticated, "401");
@@ -442,6 +463,7 @@ int main()
     test_no_capacity();
     test_eligibility_denied();
     test_play_time_answers();
+    test_build16_decisions();
     test_unauthenticated();
     test_required_update();
     test_conflict_and_rate_limit_and_server();

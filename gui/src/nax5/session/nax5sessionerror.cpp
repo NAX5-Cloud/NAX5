@@ -33,6 +33,8 @@ static QString productMessage(Nax5SessionError error)
         return QStringLiteral("Доступно обязательное обновление NAX5. Установите новую версию, чтобы продолжить игру.");
     case Nax5SessionErrorInsufficientBalance:
         return QStringLiteral("Игровое время закончилось.\nПополните его в аккаунте на сайте и нажмите «Играть».");
+    case Nax5SessionErrorConsoleOffline:
+        return QStringLiteral("Консоль сейчас выключена." "\n" "Мы уже знаем об этом и включим её. Попробуйте позже.");
     case Nax5SessionErrorSessionCooldown:
         return QStringLiteral("Консоль ждут другие игроки.\nВы играли больше 3 часов, попробуйте снова через 10 минут.");
     case Nax5SessionErrorNone:

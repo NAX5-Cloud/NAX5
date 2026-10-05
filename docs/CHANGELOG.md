@@ -21,6 +21,23 @@ Play time. Everything here is shown only when the backend charges play time (`bi
 - The balance is re-read after a session and when the window becomes active again.
 - No play time and the cooldown do not upload a `reserve-fail` report.
 
+Fixes from the study of build 15 logs (365 sessions):
+
+- After a crash inside the GPU vendor's Vulkan driver the hardware decoder is switched from `auto`/`vulkan`
+  to `d3d11va` on the next start, with a line on the play panel. 34 of the 38 crashes seen on build 15 were
+  two players' Intel driver.
+- «Играть» stays blocked for as long as the server refuses (60 seconds, or the `retryAfterSeconds` the server
+  sends) with a countdown, and «too many attempts» no longer uploads a report. Before, the button came back
+  after 5 seconds and every press produced a refusal and a report.
+- A console that is switched off has its own answer and text (`CONSOLE_OFFLINE`) instead of a connection
+  attempt that times out.
+- When the console ends the stream itself (rest mode or power off chosen on it), the panel says so and asks
+  the player not to power it off.
+- The UDP probe no longer spins and floods the log when its socket drops out of the bound state (up to
+  27 000 warning lines in one session).
+- Diagnostics: BUILD-INFO lists the display adapters with driver versions (`gpu_adapters`); the crash
+  summary gets a `dump_result` line, so a summary without it means the dump call never returned.
+
 ## Build 15 (2026-09-28)
 
 - A stream with no decoded frame for 60 seconds is stopped and the console is released (console asleep or

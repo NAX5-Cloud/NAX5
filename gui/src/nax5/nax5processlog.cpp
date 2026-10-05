@@ -20,6 +20,11 @@
 #include <QVector>
 #include <QByteArray>
 #include <QtGlobal>
+#include <QSettings>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
 
 #ifndef CHIAKI_VERSION
 #define CHIAKI_VERSION "unknown"
@@ -177,6 +182,39 @@ QString formatPacketLoss(double value)
 
 } // namespace
 
+// Display adapters with their driver versions, e.g. "Intel(R) UHD Graphics [31.0.101.5186]".
+// A crash in a video driver cannot be judged without knowing which driver it was.
+QString nax5GpuAdapters()
+{
+#ifdef Q_OS_WIN
+    QStringList adapters;
+    DISPLAY_DEVICEW device = {};
+    device.cb = sizeof(device);
+    for (DWORD index = 0; EnumDisplayDevicesW(nullptr, index, &device, 0); ++index)
+    {
+        if (device.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER)
+            continue;
+        QString entry = QString::fromWCharArray(device.DeviceString).trimmed();
+        if (entry.isEmpty())
+            continue;
+        const QString key = QString::fromWCharArray(device.DeviceKey);
+        const QString prefix = QStringLiteral("\\Registry\\Machine\\");
+        if (key.startsWith(prefix, Qt::CaseInsensitive))
+        {
+            const QSettings registry(QStringLiteral("HKEY_LOCAL_MACHINE\\") + key.mid(prefix.size()), QSettings::NativeFormat);
+            const QString version = registry.value(QStringLiteral("DriverVersion")).toString();
+            if (!version.isEmpty())
+                entry += QStringLiteral(" [%1]").arg(version);
+        }
+        if (!adapters.contains(entry))
+            adapters.append(entry);
+    }
+    return adapters.join(QStringLiteral("; "));
+#else
+    return QString();
+#endif
+}
+
 QString nax5BuildInfoText()
 {
     return nax5BuildInfoText(Nax5BuildInfoSnapshot());
@@ -199,6 +237,7 @@ QString nax5BuildInfoText(const Nax5BuildInfoSnapshot &snapshot)
     text += QStringLiteral("os_platform=%1\n").arg(nax5OsPlatform());
     text += QStringLiteral("os_version=%1\n").arg(nax5OsVersion());
     text += QStringLiteral("os_build=%1\n").arg(nax5OsBuild());
+    text += QStringLiteral("gpu_adapters=%1\n").arg(nax5GpuAdapters());
     text += QStringLiteral("locale=%1\n").arg(nax5LocaleName());
     text += nax5NetworkHintText(nax5QueryNetworkHint());
     if (snapshot.has_stream_stats)

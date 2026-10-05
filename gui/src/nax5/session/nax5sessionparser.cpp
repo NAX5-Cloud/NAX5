@@ -70,6 +70,8 @@ static Nax5SessionError errorFromCode(const QString &code, int http_status)
         return Nax5SessionErrorUserNotEligible;
     if (code == QLatin1String("INSUFFICIENT_BALANCE"))
         return Nax5SessionErrorInsufficientBalance;
+    if (code == QLatin1String("CONSOLE_OFFLINE"))
+        return Nax5SessionErrorConsoleOffline;
     if (code == QLatin1String("ACTIVE_SESSION_EXISTS"))
         return Nax5SessionErrorActiveSessionExists;
     if (code == QLatin1String("UNAUTHENTICATED"))
@@ -112,6 +114,9 @@ static Nax5SessionParseResult parseDomainError(int http_status, const QByteArray
         const bool cooldown = parseJsonObject(body, &limited)
             && limited.value(QStringLiteral("reason")).toString() == QLatin1String("SESSION_COOLDOWN");
         result.error = cooldown ? Nax5SessionErrorSessionCooldown : Nax5SessionErrorRateLimited;
+        const QJsonValue retry = limited.value(QStringLiteral("retryAfterSeconds"));
+        if (retry.isDouble() && retry.toDouble() > 0)
+            result.retry_after_seconds = retry.toVariant().toLongLong();
         return result;
     }
     if (http_status >= 500)
@@ -134,6 +139,9 @@ static Nax5SessionParseResult parseDomainError(int http_status, const QByteArray
 
     result.error = errorFromCode(root.value(QStringLiteral("code")).toString(), http_status);
     result.reason = root.value(QStringLiteral("reason")).toString();
+    const QJsonValue retry = root.value(QStringLiteral("retryAfterSeconds"));
+    if (retry.isDouble() && retry.toDouble() > 0)
+        result.retry_after_seconds = retry.toVariant().toLongLong();
     const QJsonValue balance = root.value(QStringLiteral("balanceSeconds"));
     if (balance.isDouble() && balance.toDouble() >= 0)
         result.balance_seconds = balance.toVariant().toLongLong();

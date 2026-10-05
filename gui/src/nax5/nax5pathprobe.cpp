@@ -112,6 +112,18 @@ public:
 
             while (!isInterruptionRequested())
             {
+                if (socket.state() != QAbstractSocket::BoundState)
+                {
+                    // The socket fell out of the bound state (adapter gone, or Windows reset it after an ICMP
+                    // "port unreachable"). Packets already sent stay pending and are counted as lost. Without this the loop below spins on
+                    // an unbound socket and Qt writes a warning per iteration: tens of thousands of lines.
+                    socket.close();
+                    if (!socket.bind(QHostAddress::AnyIPv4, 0))
+                    {
+                        msleep(500);
+                        continue;
+                    }
+                }
                 qint64 now = clock.nsecsElapsed();
                 if (now >= next_send)
                 {
