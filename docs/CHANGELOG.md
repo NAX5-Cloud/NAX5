@@ -3,7 +3,9 @@
 What each build changed for the player and for the people who support it. Newest first.
 Release facts (tag, commit, checksums) are recorded in the workspace `RELEASES.md`.
 
-None of these builds changes `lib/` or `gui/src/streamsession.cpp`; see [FORK-MAINTENANCE.md](../FORK-MAINTENANCE.md).
+`lib/` is identical to chiaki-ng v1.10.0 in every build. `gui/src/streamsession.cpp` was changed in builds 9
+and 14 and not since; the exact differences are listed in [FORK-MAINTENANCE.md](../FORK-MAINTENANCE.md).
+Builds 15 and 16 change neither.
 
 ## Build 16 (not released yet)
 
@@ -32,7 +34,8 @@ Play time. Everything here is shown only when the backend charges play time (`bi
 
 Includes build 13, which was never released on its own.
 
-- Fixed a crash in echo cancellation.
+- Fixed a crash in echo cancellation (a change in `gui/src/streamsession.cpp`, microphone buffers).
+- A failed stream start is retried with a paced delay instead of every 6 ms (also `streamsession.cpp`).
 - Crash minidumps: written on an unhandled exception and uploaded as a `crash` report on the next login.
 - `/end/` is resent until the server answers; session retries are paced.
 - Whole-session totals in the diagnostics (`diagnostics_schema=4`).
