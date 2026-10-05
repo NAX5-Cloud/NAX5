@@ -55,7 +55,7 @@ public:
     Q_INVOKABLE void tryRestoreSession();
     Q_INVOKABLE void logout();
     // Re-reads the account (play time) without touching the login state.
-    void refreshAccount();
+    Q_INVOKABLE void refreshAccount();
 
 signals:
     void stateChanged();
@@ -86,7 +86,7 @@ private:
     bool email_verified;
     qint64 balance_seconds = -1;
     bool billing_enforced = false;
-    bool refreshing_account = false;
+    quint64 refresh_request_id = 0;
     bool remember_enabled;
     bool restoring_session;
     bool fresh_login;

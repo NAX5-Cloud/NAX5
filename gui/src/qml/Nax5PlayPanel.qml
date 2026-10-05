@@ -12,6 +12,15 @@ Rectangle {
     Material.theme: Material.Dark
     Material.accent: "#00a7ff"
 
+    // Back from the browser after a top-up: show the new balance without a restart.
+    Connections {
+        target: Qt.application
+        function onStateChanged() {
+            if (Qt.application.state === Qt.ApplicationActive && Nax5Auth.authenticated && Nax5Auth.billingEnforced)
+                Nax5Auth.refreshAccount();
+        }
+    }
+
     ColumnLayout {
         id: column
         anchors.left: parent.left

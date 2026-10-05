@@ -92,8 +92,9 @@ void Nax5AuthController::refreshAccount()
 {
     if (!authenticated() || session_token.isEmpty() || me_request_id != 0)
         return;
-    refreshing_account = true;
-    me_request_id = api->fetchMe(session_token);
+    // Its own id: a login or logout that starts meanwhile aborts this request without an answer,
+    // and that must leave no state behind.
+    refresh_request_id = api->fetchMe(session_token);
 }
 
 void Nax5AuthController::clearSessionToken()
@@ -154,6 +155,7 @@ void Nax5AuthController::logout()
 {
     login_request_id = 0;
     me_request_id = 0;
+    refresh_request_id = 0;
     restoring_session = false;
     const QString token = session_token;
     clearSessionToken();
@@ -206,14 +208,11 @@ void Nax5AuthController::onLoginFinished(quint64 request_id, const Nax5LoginPars
 
 void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResult &result)
 {
-    if (request_id != me_request_id)
-        return;
-    me_request_id = 0;
-    if (refreshing_account)
+    if (request_id != 0 && request_id == refresh_request_id)
     {
         // A background refresh: a failure must not log the player out.
-        refreshing_account = false;
-        if (result.ok)
+        refresh_request_id = 0;
+        if (result.ok && authenticated())
         {
             access_status = result.access_status;
             email_verified = result.email_verified;
@@ -223,6 +222,9 @@ void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResul
         }
         return;
     }
+    if (request_id != me_request_id)
+        return;
+    me_request_id = 0;
     if (!result.ok)
     {
         if (restoring_session)

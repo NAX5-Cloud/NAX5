@@ -303,6 +303,8 @@ void Nax5SessionController::resetLocal()
     pending_terminal.attempts = 0;
     idempotency_key.clear();
     operator_console_code.clear();
+    setRemainingSeconds(-1);
+    setTopUpSuggested(false);
     ignore_cancel_result = false;
     stream_was_connected = false;
     stream_first_frame_seen = false;
@@ -1147,7 +1149,9 @@ void Nax5SessionController::onReserveFinished(quint64 request_id, const Nax5Sess
             reserve_backoff_timer->start(kNoCapacityBackoffMs);
             emit stateChanged();
         }
-        if (result.error != Nax5SessionErrorUnauthenticated)
+        // No play time and the cooldown are expected answers, not failures worth a diagnostic report.
+        if (result.error != Nax5SessionErrorUnauthenticated && result.error != Nax5SessionErrorInsufficientBalance
+            && result.error != Nax5SessionErrorSessionCooldown)
             submitClientReport(Nax5ClientReportKindReserveFail);
         return;
     }
