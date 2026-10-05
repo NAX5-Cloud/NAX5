@@ -28,6 +28,8 @@ struct Nax5MeParseResult
     bool email_verified;
     qint64 balance_seconds;  // -1 when the server does not report play time
     bool billing_enforced;
+    QString console_state;          // free, busy, offline; empty when the server does not say
+    qint64 console_free_in_seconds; // the latest the console gets free; -1 when unknown
 
     Nax5MeParseResult()
         : ok(false)
@@ -36,6 +38,7 @@ struct Nax5MeParseResult
         , email_verified(false)
         , balance_seconds(-1)
         , billing_enforced(false)
+        , console_free_in_seconds(-1)
     {
     }
 };

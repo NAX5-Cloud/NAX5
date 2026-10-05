@@ -4,7 +4,7 @@ static QString productMessage(Nax5SessionError error)
 {
     switch (error) {
     case Nax5SessionErrorNoCapacity:
-        return QStringLiteral("Все консоли сейчас заняты.\nПопробуйте немного позже.");
+        return QStringLiteral("Консоль сейчас занята.\nЛаунчер сообщит здесь, когда она освободится.");
     case Nax5SessionErrorUserNotEligible:
         return QStringLiteral("Этот аккаунт пока не может получить консоль.");
     case Nax5SessionErrorActiveSessionExists:

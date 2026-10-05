@@ -253,6 +253,16 @@ static void test_me_play_time()
         "\"balanceSeconds\":4320,\"billingEnforced\":true}";
     const Nax5MeParseResult result = nax5ParseMeResponse(200, body);
     expect(result.ok && result.balance_seconds == 4320 && result.billing_enforced, "me carries play time");
+    expect(result.console_state.isEmpty() && result.console_free_in_seconds == -1, "me without console status");
+    const char *busy =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,"
+        "\"consoleState\":\"busy\",\"consoleFreeInSeconds\":900}";
+    const Nax5MeParseResult taken = nax5ParseMeResponse(200, busy);
+    expect(taken.console_state == QStringLiteral("busy") && taken.console_free_in_seconds == 900, "me carries console status");
+    const char *unknown =
+        "{\"id\":12,\"email\":\"a@example.com\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,"
+        "\"consoleState\":\"busy\",\"consoleFreeInSeconds\":null}";
+    expect(nax5ParseMeResponse(200, unknown).console_free_in_seconds == -1, "unknown wait stays unknown");
 }
 
 int main()

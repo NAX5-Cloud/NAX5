@@ -6,7 +6,7 @@ New codes are added at the end only: the numbers are used in log analysis.
 
 | N | Name | Server answer | Text on screen |
 | --- | --- | --- | --- |
-| 1 | NoCapacity | 409 `NO_CAPACITY` | Все консоли сейчас заняты. Попробуйте немного позже. |
+| 1 | NoCapacity | 409 `NO_CAPACITY` | Консоль сейчас занята. Лаунчер сообщит здесь, когда она освободится. |
 | 2 | UserNotEligible | 403 `USER_NOT_ELIGIBLE` | Этот аккаунт пока не может получить консоль. |
 | 3 | ActiveSessionExists | 409 `ACTIVE_SESSION_EXISTS` | У вас уже есть выделенная консоль. |
 | 4 | Unauthenticated | 401 | Сессия входа истекла. Войдите снова. |

@@ -310,6 +310,20 @@ QString nax5LowTimeNotice(int threshold)
     return QString();
 }
 
+QString nax5ConsoleStatusText(const QString &state, qint64 free_in_seconds, bool just_freed)
+{
+    if (state == QStringLiteral("free"))
+        return just_freed ? QStringLiteral("Консоль освободилась. Нажмите «Играть»")
+                          : QStringLiteral("Консоль свободна");
+    if (state == QStringLiteral("offline"))
+        return QStringLiteral("Консоль выключена. Мы уже знаем об этом и включим её");
+    if (state == QStringLiteral("busy"))
+        return free_in_seconds >= 0
+            ? QStringLiteral("Консоль занята. Освободится через %1").arg(nax5FormatPlayTime(qMax<qint64>(free_in_seconds, 60)))
+            : QStringLiteral("Консоль занята другим игроком");
+    return QString();
+}
+
 bool nax5SessionClosedForBalance(const QString &reason)
 {
     return reason == QLatin1String("BALANCE_EXHAUSTED");

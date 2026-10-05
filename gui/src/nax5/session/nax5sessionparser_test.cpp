@@ -92,6 +92,11 @@ static void test_play_time_answers()
     expect(nax5LowTimeThreshold(-1, 200) == 300, "a session that starts short warns at once");
     expect(nax5LowTimeThreshold(-1, 4000) == 0, "no warning with plenty of time");
     expect(nax5LowTimeThreshold(100, -1) == 0, "no warning when time is not reported");
+    expect(nax5ConsoleStatusText(QStringLiteral("busy"), 900, false) == QStringLiteral("Консоль занята. Освободится через 15 мин"), "busy console says when it gets free");
+    expect(nax5ConsoleStatusText(QStringLiteral("busy"), 10800, false) == QStringLiteral("Консоль занята. Освободится через 3 ч"), "long wait is said as it is");
+    expect(nax5ConsoleStatusText(QStringLiteral("busy"), -1, false) == QStringLiteral("Консоль занята другим игроком"), "busy without an estimate");
+    expect(nax5ConsoleStatusText(QStringLiteral("free"), -1, true).contains(QStringLiteral("освободилась")), "freed console is announced");
+    expect(nax5ConsoleStatusText(QString(), -1, false).isEmpty(), "old backend: no console line");
 }
 
 static void test_build16_decisions()
@@ -204,7 +209,7 @@ static void test_state_transitions_and_double_click()
 static void test_user_facing_errors_and_no_leak()
 {
     const QString no_capacity = nax5SessionErrorMessage(Nax5SessionErrorNoCapacity);
-    expect(no_capacity.contains(QStringLiteral("заняты")), "capacity message");
+    expect(no_capacity.contains(QStringLiteral("занята")), "capacity message");
     expect(!no_capacity.contains(QStringLiteral("HTTP")), "no http");
     expect(!no_capacity.contains(QStringLiteral("409")), "no status code");
     expect(!nax5SessionPayloadLooksLeaky(kReserved), "clean payload");
