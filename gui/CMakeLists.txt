@@ -49,6 +49,8 @@ set(SOURCE_FILES
 	src/nax5/nax5processlog.cpp
 	include/nax5/nax5crashhandler.h
 	src/nax5/nax5crashhandler.cpp
+	include/nax5/nax5singleinstance.h
+	src/nax5/nax5singleinstance.cpp
 	include/nax5/nax5networkhint.h
 	src/nax5/nax5networkhint.cpp
 	include/nax5/nax5pathprobe.h
@@ -345,7 +347,7 @@ if(CHIAKI_ENABLE_TESTS)
 	target_include_directories(nax5-integration PRIVATE include ${CMAKE_SOURCE_DIR}/lib/include)
 	target_compile_definitions(nax5-integration PRIVATE
 		CHIAKI_VERSION="1.10.0"
-		NAX5_VERSION="alpha-0.5-build-14"
+		NAX5_VERSION="alpha-0.5-build-16"
 		NAX5_CLIENT_SHA="integration"
 	)
 	target_link_libraries(nax5-integration Qt::Core Qt::Network)

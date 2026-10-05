@@ -52,5 +52,7 @@ QString nax5OsPlatform();
 QString nax5OsVersion();
 QString nax5OsBuild();
 QString nax5LocaleName();
+// Display adapters and driver versions for BUILD-INFO; empty off Windows.
+QString nax5GpuAdapters();
 QString nax5BuildInfoText();
 QString nax5BuildInfoText(const Nax5BuildInfoSnapshot &snapshot);

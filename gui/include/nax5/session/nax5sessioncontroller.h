@@ -45,6 +45,13 @@ class Nax5SessionController : public QObject
     Q_PROPERTY(QString sessionId READ sessionId NOTIFY assignmentChanged)
     Q_PROPERTY(bool updateRequired READ updateRequired NOTIFY stateChanged)
     Q_PROPERTY(QString updateUrl READ updateUrl NOTIFY stateChanged)
+    Q_PROPERTY(QString remainingText READ remainingText NOTIFY playTimeChanged)
+    Q_PROPERTY(bool topUpSuggested READ topUpSuggested NOTIFY playTimeChanged)
+    Q_PROPERTY(QString topUpUrl READ topUpUrl CONSTANT)
+    Q_PROPERTY(QString timeNotice READ timeNotice NOTIFY timeNoticeChanged)
+    Q_PROPERTY(int timeNoticeMs READ timeNoticeMs NOTIFY timeNoticeChanged)
+    Q_PROPERTY(bool timeNoticeLast READ timeNoticeLast NOTIFY timeNoticeChanged)
+    Q_PROPERTY(int retrySeconds READ retrySeconds NOTIFY retryChanged)
 
 public:
     explicit Nax5SessionController(Nax5AuthController *auth, QmlBackend *backend, QObject *parent = nullptr);
@@ -66,6 +73,13 @@ public:
     QString sessionId() const { return session_id; }
     bool updateRequired() const { return current_error == Nax5SessionErrorClientUpdateRequired; }
     QString updateUrl() const { return update_url; }
+    QString remainingText() const;
+    bool topUpSuggested() const { return top_up_suggested; }
+    QString topUpUrl() const { return QStringLiteral("https://www.cloudgta6.com/account/"); }
+    QString timeNotice() const { return time_notice; }
+    int timeNoticeMs() const { return time_notice_ms; }
+    bool timeNoticeLast() const { return time_notice_last; }
+    int retrySeconds() const;
 
     Q_INVOKABLE void play();
     Q_INVOKABLE void release();
@@ -81,6 +95,9 @@ signals:
     void statusTextChanged();
     void errorMessageChanged();
     void assignmentChanged();
+    void playTimeChanged();
+    void timeNoticeChanged();
+    void retryChanged();
     void diagnosticCaptureRequested(const QString &root, qint64 owner);
     void diagnosticCaptureFinished(bool ok);
 
@@ -128,6 +145,12 @@ private:
     void onStreamQuit(ChiakiQuitReason reason, const QString &reason_str);
     void reportFail();
     void reportEnd();
+    void endSessionClosedByBackend(const QString &reason);
+    void setRemainingSeconds(qint64 seconds);
+    void setTopUpSuggested(bool suggested);
+    void startReservePause(qint64 retry_after_seconds);
+    void applyCrashDecoderFallback();
+    void stopStalledStream();
     void dispatchTerminal(Nax5TerminalMutation mutation, bool silent);
     void sendPendingTerminal();
     void handleTerminalFinished(quint64 request_id, const Nax5SessionParseResult &result, Nax5TerminalMutation mutation);
@@ -165,6 +188,7 @@ private:
     QTimer *lease_timer;
     QTimer *heartbeat_timer;
     QTimer *reserve_backoff_timer;
+    QTimer *retry_tick_timer;
     QTimer *telemetry_flush_timer;
     QTimer *diagnostic_timer;
     QTimer *report_queue_timer;
@@ -180,6 +204,8 @@ private:
     bool diagnostic_stream_connected = false;
     Nax5QueuedReportPart uploading_part;
     QElapsedTimer diagnostic_clock;
+    QElapsedTimer last_frame_clock;
+    QElapsedTimer last_input_clock;
     qint64 diagnostic_duration_ms = 0;
     qint64 diagnostic_last_sample_ms = 0;
     Nax5GameSessionState session_state;
@@ -187,6 +213,11 @@ private:
     QString error_message;
     Nax5SessionError current_error = Nax5SessionErrorNone;
     QString update_url;
+    qint64 remaining_seconds = -1;
+    bool top_up_suggested = false;
+    QString time_notice;
+    int time_notice_ms = 0;
+    bool time_notice_last = false;
     QString console_code;
     QString console_region;
     QString session_id;
@@ -207,6 +238,7 @@ private:
     bool ignore_cancel_result;
     bool stream_was_connected;
     bool stream_first_frame_seen;
+    bool stream_stalled = false;
     bool operator_test_active;
     bool shutdown_started;
     bool awaiting_abort_current;

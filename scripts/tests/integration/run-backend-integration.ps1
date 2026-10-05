@@ -32,6 +32,8 @@ $backendEnv = @{
     SESSION_RESERVATION_LEASE_SECONDS = "$LeaseSeconds"
     SESSION_CONNECTING_LEASE_SECONDS = "$LeaseSeconds"
     SESSION_ACTIVE_LEASE_SECONDS = "$LeaseSeconds"
+    # The backend default is 60 s; the reserve checks below wait about 5 s after NO_CAPACITY.
+    SESSION_RESERVE_BACKOFF_SECONDS = '5'
     NAX5_IT_USER_A = "it-a-$suffix@example.test"; NAX5_IT_USER_B = "it-b-$suffix@example.test"
     NAX5_IT_PASSWORD = 'It-' + [Guid]::NewGuid().ToString('N')
     NAX5_IT_CONSOLE = 'PS5-IT'

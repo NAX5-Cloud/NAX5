@@ -20,7 +20,10 @@ enum Nax5SessionError
     Nax5SessionErrorHostUnreachable,
     Nax5SessionErrorConnectionTimeout,
     Nax5SessionErrorOperatorTestRequired,
-    Nax5SessionErrorClientUpdateRequired
+    Nax5SessionErrorClientUpdateRequired,
+    Nax5SessionErrorInsufficientBalance,
+    Nax5SessionErrorSessionCooldown,
+    Nax5SessionErrorConsoleOffline
 };
 
 QString nax5SessionErrorMessage(Nax5SessionError error);

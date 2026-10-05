@@ -1,3 +1,4 @@
+#include <limits>
 #include "nax5/session/nax5sessionlifecycle.h"
 
 #include <QDateTime>
@@ -104,6 +105,22 @@ int nax5StreamRetryDelayMs(qint64 elapsed_since_first_attempt_ms)
 int nax5TerminalRetryDelayMs(int attempt)
 {
     return 300 * qBound(1, attempt, 4);
+}
+
+int nax5StreamStallTimeoutMs()
+{
+    // A live PS5 stream decodes ~60 frames/s even on a static screen.
+    return 60 * 1000;
+}
+
+bool nax5StreamStalled(bool first_frame_seen, qint64 ms_since_last_frame)
+{
+    return first_frame_seen && ms_since_last_frame > nax5StreamStallTimeoutMs();
+}
+
+bool nax5HeartbeatSessionClosed(Nax5SessionError error)
+{
+    return error == Nax5SessionErrorNotFound;
 }
 
 int nax5ShutdownGraceMs()
@@ -257,4 +274,104 @@ void nax5ClearTerminal(QSettings &settings, const QString &session_id)
         settings.remove(QString());
     settings.endGroup();
     settings.sync();
+}
+
+QString nax5FormatPlayTime(qint64 seconds)
+{
+    const qint64 total = qMax<qint64>(seconds, 0) / 60;
+    const qint64 hours = total / 60;
+    const qint64 minutes = total % 60;
+    if (hours > 0 && minutes > 0)
+        return QStringLiteral("%1 ч %2 мин").arg(hours).arg(minutes);
+    if (hours > 0)
+        return QStringLiteral("%1 ч").arg(hours);
+    return QStringLiteral("%1 мин").arg(minutes);
+}
+
+int nax5LowTimeThreshold(qint64 previous_remaining, qint64 remaining)
+{
+    if (remaining < 0)
+        return 0;
+    // No previous value means the session has just started: warn at once if it starts short.
+    const qint64 before = previous_remaining < 0 ? std::numeric_limits<qint64>::max() : previous_remaining;
+    if (remaining <= 60 && before > 60)
+        return 60;
+    if (remaining <= 300 && before > 300)
+        return 300;
+    if (remaining <= 600 && before > 600)
+        return 600;
+    return 0;
+}
+
+QString nax5LowTimeNotice(int threshold)
+{
+    if (threshold == 60)
+        return QStringLiteral("Осталась 1 минута. Сохранитесь: игра остановится");
+    if (threshold == 300)
+        return QStringLiteral("Осталось 5 минут. Найдите место для сохранения");
+    if (threshold == 600)
+        return QStringLiteral("Осталось 10 минут");
+    return QString();
+}
+
+int nax5LowTimeNoticeMs(int threshold)
+{
+    // The closer to the end, the longer it stays; never long enough to get in the way of the game.
+    if (threshold == 60)
+        return 10000;
+    if (threshold == 300)
+        return 8000;
+    return 6000;
+}
+
+QString nax5ConsoleStatusText(const QString &state, qint64 free_in_seconds, bool just_freed)
+{
+    if (state == QStringLiteral("free"))
+        return just_freed ? QStringLiteral("Консоль освободилась. Нажмите «Играть»")
+                          : QStringLiteral("Консоль свободна");
+    if (state == QStringLiteral("offline"))
+        return QStringLiteral("Консоль выключена. Мы уже знаем об этом и включим её");
+    if (state == QStringLiteral("busy"))
+        return free_in_seconds >= 0
+            ? QStringLiteral("Консоль занята. Освободится через %1").arg(nax5FormatPlayTime(qMax<qint64>(free_in_seconds, 60)))
+            : QStringLiteral("Консоль занята другим игроком");
+    return QString();
+}
+
+bool nax5SessionClosedForBalance(const QString &reason)
+{
+    return reason == QLatin1String("BALANCE_EXHAUSTED");
+}
+
+QString nax5SessionClosedText(const QString &reason)
+{
+    if (nax5SessionClosedForBalance(reason))
+        return QStringLiteral("Игровое время закончилось");
+    if (reason == QLatin1String("SESSION_LIMIT_REACHED"))
+        return QStringLiteral("Сессия завершена: вы играли больше 3 часов, а консоль ждут другие игроки");
+    return QStringLiteral("Сессия завершена сервером");
+}
+
+QString nax5DecoderAfterCrash(const QString &current_decoder, const QString &fault_module)
+{
+    if (current_decoder != QLatin1String("auto") && current_decoder != QLatin1String("vulkan"))
+        return QString();
+    QString name = fault_module;
+    name.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    name = name.mid(name.lastIndexOf(QLatin1Char('/')) + 1).toLower();
+    // Intel, AMD, NVIDIA Vulkan drivers and the Vulkan loader.
+    static const char *const prefixes[] = {"igvk", "amdvlk", "nvoglv", "vulkan-1"};
+    for (const char *prefix : prefixes)
+        if (name.startsWith(QLatin1String(prefix)))
+            return QStringLiteral("d3d11va");
+    return QString();
+}
+
+int nax5ReserveRetryPauseMs(qint64 retry_after_seconds)
+{
+    // The server refuses the same player for a minute after "no console"; pressing earlier only earns
+    // "too many attempts".
+    if (retry_after_seconds > 0)
+        return int(qMin<qint64>(retry_after_seconds, 600) * 1000);
+    return 60 * 1000;
 }

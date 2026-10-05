@@ -4,7 +4,20 @@ Native Windows client for NAX5. This repository is a **minimal fork** of [street
 
 Root [README.md](README.md) is the product/user-facing note. This file is the developer guide. Upstream licenses and notices stay in [UPSTREAM.md](UPSTREAM.md), [FORK-MAINTENANCE.md](FORK-MAINTENANCE.md), [COPYING](COPYING), and [LICENSES](LICENSES).
 
-Current branch: `task4-auto-remote-play`. Record tagged releases in workspace [RELEASES.md](../RELEASES.md).
+Releases are cut from tags `alpha-0.5-build-N`; the source of a release is its tag. The default branch
+`task4-auto-remote-play` lags behind (build 12): builds 14 to 16 live in stacked branches that are not merged
+yet. Record tagged releases in workspace [RELEASES.md](../RELEASES.md).
+
+## Read next
+
+| Document | What it answers |
+| --- | --- |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | what each build changed |
+| [docs/SESSION-LIFECYCLE.md](docs/SESSION-LIFECYCLE.md) | states, heartbeat, how a session ends, timers |
+| [docs/MESSAGES.md](docs/MESSAGES.md) | on-screen texts and the error numbers in logs |
+| [docs/SUPPORT.md](docs/SUPPORT.md) | typical player complaints and what to check |
+| [KNOWN-ISSUES.md](KNOWN-ISSUES.md) | open problems |
+| [docs/DIAGNOSTICS-BUILD7.md](docs/DIAGNOSTICS-BUILD7.md) | how logs reach the server |
 
 ## Purpose
 
@@ -72,6 +85,29 @@ Operator mode: env `NAX5_OPERATOR_MODE=1` (or `NAX5_OPERATOR_BUILD`). Operator Q
 
 Material fields used: host, target, nickname, `regist_key`, `morning`, optional PIN. Keys are overwritten then cleared on `discardMaterial()` / logout. Do not log them.
 
+## Video decoder
+
+The decoder is chiaki-ng's setting (Settings → Video → Hardware Decoder), default `auto`. On Windows `auto`
+tries `vulkan` first and falls back to `d3d11va` where Vulkan video decoding is not available. Some GPU
+drivers crash inside their Vulkan decoder (seen in the field: Intel `igvk64.dll`, every session of one
+player); `d3d11va` works on the same machines. The stream log records the decoder actually used
+(`Using hardware decoder "..."`); BUILD-INFO records only the setting. The replay test covers Vulkan only on
+machines where it is available.
+
+## Console power
+
+Before a stream the launcher sends the Remote Play wake-up packet. That brings the console back from rest
+mode. A console that is powered off does not answer it, and nothing in the launcher can switch it on. A
+player can power the shared console off from the console's own menu during a session; the launcher cannot
+prevent or detect that. The launcher itself never sends the console to sleep in product mode.
+
+## Play time (build 16)
+
+When `/api/v1/auth/me/` reports `billingEnforced`, the play panel shows `balanceSeconds`, heartbeats carry
+`remainingSeconds`, and a closing 404 carries `reason`. All of these fields are optional: without them the
+launcher behaves like build 15. The server decides everything about time; the launcher only shows it. Details
+in [docs/SESSION-LIFECYCLE.md](docs/SESSION-LIFECYCLE.md) and [docs/MESSAGES.md](docs/MESSAGES.md).
+
 ## Play eligibility
 
 Product Play requires authenticated user, verified email, and `accessStatus == ACTIVE`. Backend reserve also accepts `INVITED`; the client gate is stricter until product UX aligns.
@@ -130,6 +166,12 @@ CMake unit tests:
 - `gui/src/nax5/nax5authparser_test.cpp`
 - `gui/src/nax5/session/nax5sessionparser_test.cpp`
 - `gui/src/nax5/connection/nax5connection_test.cpp`
+- `gui/src/nax5/nax5telemetry_test.cpp`
+
+Beyond the unit tests: the client and backend integration test
+(`scripts/tests/integration/run-backend-integration.ps1`, real HTTP code against a local backend) and the
+stream replay matrix ([scripts/tests/stream-replay/README.md](scripts/tests/stream-replay/README.md)).
+Neither opens the product window: new on-screen elements still need a look on a real machine.
 
 Manual product checks: [docs/acceptance/ALPHA05-USER-TEST.md](docs/acceptance/ALPHA05-USER-TEST.md) and [TEST-MATRIX.md](TEST-MATRIX.md). Older alpha notes are under [docs/acceptance/history/](docs/acceptance/history/).
 

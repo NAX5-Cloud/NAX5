@@ -17,6 +17,9 @@ Build with `scripts/release/build-alpha05-user-pack.sh`. Canonical user artifact
 Register on [cloudgta6.com/register/](https://www.cloudgta6.com/register/), confirm email, wait for **`ACTIVE`** access status.
 Play is gated on `ACTIVE` everywhere (website copy, backend reserve, client Play button).
 
+> Written for build 4. The checklist below still applies, but the release tag, the report contents (complete
+> logs in parts, not a tail) and the heartbeat have changed since; see [../CHANGELOG.md](../CHANGELOG.md).
+
 ## Logs
 
 | Location | Files |
@@ -89,7 +92,6 @@ Physical PS5 PIN registration and READY activation are operator-only historical 
 
 ## NOT IN SCOPE
 
-- Session heartbeat (Task 6)
 - Code signing / SmartScreen reputation
 - Auto-update
 - `INVITED` Play gate (requires `ACTIVE`)
