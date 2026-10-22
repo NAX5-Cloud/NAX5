@@ -13,4 +13,6 @@ enum Nax5AuthError
     Nax5AuthErrorInvalidResponse
 };
 
-QString nax5AuthErrorMessage(Nax5AuthError error);
+QString nax5AuthErrorMessage(Nax5AuthError error, const QString &detail = QString());
+// Short Russian reason for a request that got no HTTP answer; `qt_network_error` is QNetworkReply::NetworkError.
+QString nax5NetworkFailureDetail(int qt_network_error);

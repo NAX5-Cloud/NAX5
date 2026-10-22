@@ -64,9 +64,9 @@ void Nax5AuthController::setState(Nax5AuthState next)
     emit stateChanged();
 }
 
-void Nax5AuthController::setError(Nax5AuthError error)
+void Nax5AuthController::setError(Nax5AuthError error, const QString &detail)
 {
-    const QString message = nax5AuthErrorMessage(error);
+    const QString message = nax5AuthErrorMessage(error, detail);
     if (error_message == message)
         return;
     error_message = message;
@@ -235,7 +235,7 @@ void Nax5AuthController::onLoginFinished(quint64 request_id, const Nax5LoginPars
     {
         restoring_session = false;
         clearSessionToken();
-        setError(result.error);
+        setError(result.error, result.detail);
         setState(nax5AuthReduce(auth_state, Nax5AuthActionLoginFailed));
         return;
     }
