@@ -267,7 +267,7 @@ if(CHIAKI_ENABLE_TESTS)
 		src/nax5/nax5authparser_test.cpp
 	)
 	target_include_directories(nax5-auth-unit PRIVATE include)
-	target_link_libraries(nax5-auth-unit Qt::Core)
+	target_link_libraries(nax5-auth-unit Qt::Core Qt::Network)
 	add_test(NAME nax5-auth COMMAND nax5-auth-unit)
 
 	add_executable(nax5-session-unit

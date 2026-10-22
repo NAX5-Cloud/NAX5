@@ -212,7 +212,8 @@ void Nax5ApiClient::finishLogin(quint64 request_id, QNetworkReply *reply)
     if (reply->error() != QNetworkReply::NoError && status == 0)
     {
         result.error = nax5MapNetworkFailure(status, reply->error() == QNetworkReply::OperationCanceledError || reply->error() == QNetworkReply::TimeoutError, isNoNetwork(reply));
-        qCWarning(nax5Api) << "login fail" << status;
+        result.detail = nax5NetworkFailureDetail(static_cast<int>(reply->error()));
+        qCWarning(nax5Api) << "login fail" << status << "qt_error" << static_cast<int>(reply->error()) << reply->errorString();
         emit loginFinished(request_id, result);
         reply->deleteLater();
         return;

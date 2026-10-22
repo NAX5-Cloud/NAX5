@@ -6,6 +6,7 @@
 #include "nax5/nax5runtime.h"
 
 #include <QByteArray>
+#include <QNetworkReply>
 #include <QString>
 #include <QUrl>
 #include <QSettings>
@@ -126,6 +127,20 @@ static void test_error_messages_are_user_facing()
     expect(invalid.contains(QStringLiteral("email")), "credentials message");
     expect(!invalid.contains(QStringLiteral("HTTP")), "no http code");
     expect(!nax5AuthErrorMessage(Nax5AuthErrorNetworkError).contains(QStringLiteral("QNetworkReply")), "no qt error");
+}
+
+static void test_network_failure_detail()
+{
+    const QString dns = nax5NetworkFailureDetail(QNetworkReply::HostNotFoundError);
+    expect(dns.contains(QStringLiteral("DNS")) && dns.contains(QStringLiteral("код 3")), "dns detail");
+    expect(nax5NetworkFailureDetail(QNetworkReply::SslHandshakeFailedError).contains(QStringLiteral("дату и время")), "tls detail");
+    expect(nax5NetworkFailureDetail(QNetworkReply::TimeoutError).contains(QStringLiteral("не ответил")), "timeout detail");
+    expect(nax5NetworkFailureDetail(QNetworkReply::ProxyNotFoundError).contains(QStringLiteral("прокси")), "proxy detail");
+    expect(nax5NetworkFailureDetail(12345).contains(QStringLiteral("код 12345")), "unknown detail keeps code");
+    const QString with = nax5AuthErrorMessage(Nax5AuthErrorNetworkError, dns);
+    expect(with.startsWith(QStringLiteral("Нет связи с сервером: ")) && with.endsWith(QLatin1Char('.')), "network message with detail");
+    expect(!with.contains(QStringLiteral("QNetworkReply")), "no qt text in message");
+    expect(nax5AuthErrorMessage(Nax5AuthErrorInvalidCredentials, dns) == nax5AuthErrorMessage(Nax5AuthErrorInvalidCredentials), "detail only for network error");
 }
 
 class EnvGuard
@@ -279,6 +294,7 @@ int main()
     test_state_machine();
     test_remote_play_requires_authenticated();
     test_error_messages_are_user_facing();
+    test_network_failure_detail();
     test_default_api_url_is_https();
     test_localhost_http_is_allowed();
     test_trailing_slash_is_stripped();

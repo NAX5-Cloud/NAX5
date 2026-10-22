@@ -72,7 +72,7 @@ signals:
 
 private:
     void setState(Nax5AuthState next);
-    void setError(Nax5AuthError error);
+    void setError(Nax5AuthError error, const QString &detail = QString());
     void clearAccount();
     void clearSessionToken();
     void onLoginFinished(quint64 request_id, const Nax5LoginParseResult &result);

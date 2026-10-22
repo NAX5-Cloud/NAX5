@@ -10,6 +10,7 @@ struct Nax5LoginParseResult
 {
     Nax5AuthError error;
     QString session_token;
+    QString detail;
 
     Nax5LoginParseResult()
         : error(Nax5AuthErrorInvalidResponse)
