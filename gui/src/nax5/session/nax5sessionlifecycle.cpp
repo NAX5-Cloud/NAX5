@@ -345,6 +345,7 @@ bool nax5SessionClosedForBalance(const QString &reason)
 
 QString nax5SessionClosedText(const QString &reason)
 {
+    if (reason == QLatin1String("BOOKING_ENDED")) return QStringLiteral("Время брони закончилось. Следующее время выберите на сайте.");
     if (nax5SessionClosedForBalance(reason))
         return QStringLiteral("Игровое время закончилось");
     if (reason == QLatin1String("SESSION_LIMIT_REACHED"))

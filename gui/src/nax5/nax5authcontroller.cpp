@@ -78,6 +78,10 @@ void Nax5AuthController::clearAccount()
     user_id = 0;
     account_email.clear();
     account_city.clear();
+    play_access_text.clear();
+    calendar_url.clear();
+    place_text.clear();
+    booked_access = false;
     access_status.clear();
     email_verified = false;
     balance_seconds = -1;
@@ -254,6 +258,10 @@ void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResul
             access_status = result.access_status;
             email_verified = result.email_verified;
             balance_seconds = result.balance_seconds;
+            play_access_text = result.play_access_text;
+            calendar_url = result.calendar_url;
+            place_text = result.place_text;
+            booked_access = result.booked_access;
             billing_enforced = result.billing_enforced;
             setConsole(result.console_state, result.console_free_in_seconds, true);
             emit accountChanged();
@@ -285,6 +293,10 @@ void Nax5AuthController::onMeFinished(quint64 request_id, const Nax5MeParseResul
     access_status = result.access_status;
     email_verified = result.email_verified;
     balance_seconds = result.balance_seconds;
+    play_access_text = result.play_access_text;
+    calendar_url = result.calendar_url;
+    place_text = result.place_text;
+    booked_access = result.booked_access;
     billing_enforced = result.billing_enforced;
     setConsole(result.console_state, result.console_free_in_seconds, false);
     emit accountChanged();

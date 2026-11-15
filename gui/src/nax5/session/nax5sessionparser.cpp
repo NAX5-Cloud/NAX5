@@ -53,6 +53,9 @@ static bool parseAssignment(const QJsonObject &root, Nax5SessionParseResult *res
     if (!parseSessionObject(session_value.toObject(), &result->session))
         return false;
     result->has_session = true;
+    const QJsonObject place = root.value(QStringLiteral("seat")).toObject();
+    if (!place.isEmpty()) result->place_text = QStringLiteral("PS аккаунт %1 · сохранение %2").arg(place.value(QStringLiteral("account")).toString()).arg(place.value(QStringLiteral("slot")).toInt());
+    result->booking_end_at = root.value(QStringLiteral("booking")).toObject().value(QStringLiteral("endAt")).toString();
     const QJsonValue remaining = root.value(QStringLiteral("remainingSeconds"));
     if (remaining.isDouble() && remaining.toDouble() >= 0)
         result->remaining_seconds = remaining.toVariant().toLongLong();

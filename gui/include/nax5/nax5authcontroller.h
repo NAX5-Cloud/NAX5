@@ -26,6 +26,10 @@ class Nax5AuthController : public QObject
     Q_PROPERTY(QString balanceText READ balanceText NOTIFY accountChanged)
     Q_PROPERTY(QString consoleState READ consoleState NOTIFY accountChanged)
     Q_PROPERTY(QString consoleText READ consoleText NOTIFY accountChanged)
+    Q_PROPERTY(QString playAccessText READ playAccessText NOTIFY accountChanged)
+    Q_PROPERTY(QString calendarUrl READ calendarUrl NOTIFY accountChanged)
+    Q_PROPERTY(QString placeText READ placeText NOTIFY accountChanged)
+    Q_PROPERTY(bool bookedAccess READ bookedAccess NOTIFY accountChanged)
     Q_PROPERTY(bool rememberEnabled READ rememberEnabled WRITE setRememberEnabled NOTIFY rememberEnabledChanged)
     Q_PROPERTY(QString savedEmail READ savedEmail NOTIFY savedCredentialsChanged)
     Q_PROPERTY(QString savedPassword READ savedPassword NOTIFY savedCredentialsChanged)
@@ -46,6 +50,10 @@ public:
     bool billingEnforced() const { return billing_enforced; }
     qint64 balanceSeconds() const { return balance_seconds; }
     QString balanceText() const;
+    QString playAccessText() const { return play_access_text; }
+    QString calendarUrl() const { return calendar_url.isEmpty() ? QStringLiteral("https://www.cloudgta6.com/account/booking/") : calendar_url; }
+    QString placeText() const { return place_text; }
+    bool bookedAccess() const { return booked_access; }
     QString consoleState() const { return console_state; }
     QString consoleText() const;
     bool rememberEnabled() const { return remember_enabled; }
@@ -89,6 +97,10 @@ private:
     qint64 user_id;
     QString account_email;
     QString account_city;
+    QString play_access_text;
+    QString calendar_url;
+    QString place_text;
+    bool booked_access = false;
     QString access_status;
     bool email_verified;
     qint64 balance_seconds = -1;

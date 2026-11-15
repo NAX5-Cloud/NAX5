@@ -81,6 +81,7 @@ Rectangle {
 
             Button {
                 text: qsTr("Пополнить")
+                visible: !Nax5Auth.bookedAccess
                 flat: !Nax5Session.topUpSuggested
                 Material.background: Nax5Session.topUpSuggested ? Material.accent : undefined
                 Material.roundedScale: Material.SmallScale
@@ -144,6 +145,24 @@ Rectangle {
             Layout.fillWidth: true
             color: "#c5c5c5"
             text: qsTr("Повторить можно через %1 с").arg(Nax5Session.retrySeconds)
+        }
+        Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: "#d9ff56"
+            text: Nax5Auth.playAccessText
+            visible: text.length > 0
+        }
+        Label {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            color: "#eeeeee"
+            text: Nax5Session.reserved ? Nax5Session.placeText : Nax5Auth.placeText
+            visible: text.length > 0
+        }
+        Button {
+            text: qsTr("Открыть календарь бронирования")
+            onClicked: Qt.openUrlExternally(Nax5Auth.calendarUrl)
         }
 
         Label {

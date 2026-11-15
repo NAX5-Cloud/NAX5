@@ -1,6 +1,8 @@
 #include "nax5/nax5authparser.h"
 
 #include <QJsonArray>
+#include <QDateTime>
+#include <QUrl>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
@@ -154,6 +156,20 @@ Nax5MeParseResult nax5ParseMeResponse(int http_status, const QByteArray &body)
     if (balance.isDouble() && balance.toDouble() >= 0)
         result.balance_seconds = balance.toVariant().toLongLong();
     result.billing_enforced = root.value(QStringLiteral("billingEnforced")).toBool(false);
+    const QJsonObject access = root.value(QStringLiteral("playAccess")).toObject();
+    const QUrl calendar(access.value(QStringLiteral("calendarUrl")).toString());
+    if (calendar.scheme() == QLatin1String("https") || (calendar.scheme() == QLatin1String("http") && (calendar.host() == QLatin1String("127.0.0.1") || calendar.host() == QLatin1String("localhost"))))
+        result.calendar_url = calendar.toString();
+    result.play_access_text = access.value(QStringLiteral("message")).toString();
+    result.booked_access = access.value(QStringLiteral("mode")).toString() == QLatin1String("BOOKING");
+    const QJsonObject place = root.value(QStringLiteral("seat")).toObject();
+    if (!place.isEmpty()) result.place_text = QStringLiteral("PS аккаунт %1 · сохранение %2. В игре выбирайте «Загрузить» и свой номер.").arg(place.value(QStringLiteral("account")).toString()).arg(place.value(QStringLiteral("slot")).toInt());
+    const QJsonObject next = access.value(result.booked_access ? QStringLiteral("activeBooking") : QStringLiteral("nextBooking")).toObject();
+    if (!next.isEmpty()) {
+        const auto start = QDateTime::fromString(next.value(QStringLiteral("startAt")).toString(), Qt::ISODate).toOffsetFromUtc(10800);
+        const auto end = QDateTime::fromString(next.value(QStringLiteral("endAt")).toString(), Qt::ISODate).toOffsetFromUtc(10800);
+        result.play_access_text += QStringLiteral("\nБронь: %1 — %2 МСК.").arg(start.toString(QStringLiteral("dd.MM HH:mm")), end.toString(QStringLiteral("dd.MM HH:mm")));
+    }
     result.console_state = root.value(QStringLiteral("consoleState")).toString();
     const QJsonValue free_in = root.value(QStringLiteral("consoleFreeInSeconds"));
     if (free_in.isDouble() && free_in.toDouble() >= 0)
