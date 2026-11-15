@@ -109,6 +109,14 @@ Nax5SessionController::Nax5SessionController(Nax5AuthController *auth, QmlBacken
     telemetry_flush_timer->setInterval(kTelemetryFlushMs);
     connect(telemetry_flush_timer, &QTimer::timeout, this, &Nax5SessionController::flushTelemetry);
     diagnostic_timer->setInterval(1000);
+    booking_timer = new QTimer(this);
+    booking_timer->setInterval(250);
+    connect(booking_timer, &QTimer::timeout, this, [this]() {
+        if (booking_end_at.isEmpty() || booking_remaining_base < 0 || !booking_clock.isValid()) return;
+        const qint64 left = qMax<qint64>(0, booking_remaining_base - booking_clock.elapsed() / 1000);
+        if (remaining_seconds != left) { remaining_seconds = left; emit playTimeChanged(); }
+        if (left == 0) endSessionClosedByBackend(QStringLiteral("BOOKING_ENDED"));
+    });
     connect(diagnostic_timer, &QTimer::timeout, this, &Nax5SessionController::onDiagnosticTick);
     report_queue_timer->setInterval(1000);
     connect(report_queue_timer, &QTimer::timeout, this, &Nax5SessionController::serviceDiagnosticQueue);
@@ -267,6 +275,10 @@ bool Nax5SessionController::isOperatorTest() const
 
 void Nax5SessionController::clearAssignment()
 {
+    place_text.clear();
+    booking_end_at.clear();
+    booking_remaining_base = -1;
+    booking_timer->stop();
     stream_was_connected = nax5StreamConnectedOnNewGeneration();
     stream_first_frame_seen = nax5StreamFirstFrameSeenOnNewGeneration();
     session_id.clear();
@@ -288,6 +300,12 @@ void Nax5SessionController::applyAssignment(const Nax5SessionParseResult &result
     session_id = result.session.id;
     console_code = result.console.code;
     console_region = result.console.region;
+    place_text = result.place_text;
+    booking_end_at = result.booking_end_at;
+    if (!booking_end_at.isEmpty() && result.remaining_seconds >= 0) {
+        setRemainingSeconds(result.remaining_seconds);
+        booking_timer->start();
+    }
     beginDiagnosticReport();
     emit assignmentChanged();
     scheduleLeaseSync(result.session.lease_expires_at);
@@ -1461,6 +1479,12 @@ QString Nax5SessionController::remainingText() const
 
 void Nax5SessionController::setRemainingSeconds(qint64 seconds)
 {
+    if (!booking_end_at.isEmpty() && seconds >= 0) {
+        if (booking_remaining_base >= 0 && booking_clock.isValid())
+            seconds = qMin(seconds, qMax<qint64>(0, booking_remaining_base - booking_clock.elapsed() / 1000));
+        booking_remaining_base = seconds;
+        booking_clock.restart();
+    }
     const int threshold = nax5LowTimeThreshold(remaining_seconds, seconds);
     if (remaining_seconds != seconds)
     {

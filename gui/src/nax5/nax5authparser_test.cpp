@@ -267,6 +267,11 @@ static void test_me_play_time()
 
 int main()
 {
+    const auto booking = nax5ParseMeResponse(200, "{\"id\":12,\"email\":\"a@example.test\",\"city\":\"\",\"accessStatus\":\"ACTIVE\",\"emailVerified\":true,\"seat\":{\"account\":\"P02\",\"slot\":5},\"playAccess\":{\"mode\":\"BOOKING\",\"message\":\"Paid booking\",\"calendarUrl\":\"http://127.0.0.1:4344/account/booking/\",\"activeBooking\":{\"startAt\":\"2026-11-18T16:00:00Z\",\"endAt\":\"2026-11-18T18:00:00Z\"}}}");
+    expect(booking.ok && booking.booked_access, "ordinary player gets paid booking access");
+    expect(booking.place_text.contains(QStringLiteral("P02")) && booking.place_text.contains(QStringLiteral("5")), "account keeps existing save slot");
+    expect(booking.play_access_text.contains(QStringLiteral("21:00")), "booking end shown in Moscow time");
+    expect(booking.calendar_url.startsWith(QStringLiteral("http://127.0.0.1:")), "local calendar link accepted");
     test_login_success();
     test_login_does_not_expose_token_on_failure();
     test_unknown_email();

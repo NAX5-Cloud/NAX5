@@ -29,6 +29,8 @@ struct Nax5SessionParseResult
     Nax5AssignedConsole console;
     QString minimum_version;
     QString update_url;
+    QString place_text;
+    QString booking_end_at;
     qint64 remaining_seconds;  // play time left in the running session; -1 when not reported
     qint64 balance_seconds;    // sent with INSUFFICIENT_BALANCE; -1 otherwise
     QString reason;            // why the server ended or refused the session, when it says so

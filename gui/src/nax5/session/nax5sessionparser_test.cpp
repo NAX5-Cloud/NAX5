@@ -469,6 +469,11 @@ static void test_persisted_terminal_roundtrip()
 
 int main()
 {
+    const QByteArray booked = QByteArray(kReserved).replace("\"console\":", "\"seat\":{\"account\":\"P02\",\"slot\":5},\"booking\":{\"endAt\":\"2026-11-18T18:00:00Z\"},\"remainingSeconds\":7200,\"console\":");
+    const auto bookedResult = nax5ParseReserveResponse(200, booked);
+    expect(bookedResult.place_text.contains(QStringLiteral("P02")) && bookedResult.place_text.contains(QStringLiteral("5")), "booked assignment keeps save slot");
+    expect(bookedResult.remaining_seconds == 7200 && !bookedResult.booking_end_at.isEmpty(), "booked assignment provides local deadline");
+    expect(nax5SessionClosedText(QStringLiteral("BOOKING_ENDED")).contains(QStringLiteral("брони")), "booking end has a clear explanation");
     test_persisted_terminal_roundtrip();
     test_reserve_success();
     test_no_capacity();

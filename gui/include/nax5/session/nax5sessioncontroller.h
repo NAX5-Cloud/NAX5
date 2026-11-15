@@ -41,6 +41,7 @@ class Nax5SessionController : public QObject
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusTextChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
     Q_PROPERTY(QString consoleCode READ consoleCode NOTIFY assignmentChanged)
+    Q_PROPERTY(QString placeText READ placeText NOTIFY assignmentChanged)
     Q_PROPERTY(QString consoleRegion READ consoleRegion NOTIFY assignmentChanged)
     Q_PROPERTY(QString sessionId READ sessionId NOTIFY assignmentChanged)
     Q_PROPERTY(bool updateRequired READ updateRequired NOTIFY stateChanged)
@@ -69,6 +70,7 @@ public:
     QString statusText() const { return status_text; }
     QString errorMessage() const { return error_message; }
     QString consoleCode() const { return console_code; }
+    QString placeText() const { return place_text; }
     QString consoleRegion() const { return console_region; }
     QString sessionId() const { return session_id; }
     bool updateRequired() const { return current_error == Nax5SessionErrorClientUpdateRequired; }
@@ -214,6 +216,11 @@ private:
     Nax5SessionError current_error = Nax5SessionErrorNone;
     QString update_url;
     qint64 remaining_seconds = -1;
+    QString place_text;
+    QString booking_end_at;
+    QElapsedTimer booking_clock;
+    qint64 booking_remaining_base = -1;
+    QTimer *booking_timer;
     bool top_up_suggested = false;
     QString time_notice;
     int time_notice_ms = 0;

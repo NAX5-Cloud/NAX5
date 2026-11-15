@@ -24,6 +24,10 @@ struct Nax5MeParseResult
     qint64 user_id;
     QString email;
     QString city;
+    QString play_access_text;
+    QString place_text;
+    QString calendar_url;
+    bool booked_access = false;
     QString access_status;
     bool email_verified;
     qint64 balance_seconds;  // -1 when the server does not report play time
