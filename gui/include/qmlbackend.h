@@ -164,7 +164,7 @@ public:
     void psnConnector();
 
     void createSession(const StreamSessionConnectInfo &connect_info);
-    bool sendMaterialWakeup(const QString &host, const QByteArray &regist_key, bool ps5);
+    bool sendMaterialWakeup(const QString &host, const QByteArray &regist_key, bool ps5, uint16_t port);
 
     void psnSessionStart();
 

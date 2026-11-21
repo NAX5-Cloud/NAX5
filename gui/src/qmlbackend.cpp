@@ -1827,10 +1827,10 @@ bool QmlBackend::sendWakeup(const QString &host, const QByteArray &regist_key, b
     }
 }
 
-bool QmlBackend::sendMaterialWakeup(const QString &host, const QByteArray &regist_key, bool ps5)
+bool QmlBackend::sendMaterialWakeup(const QString &host, const QByteArray &regist_key, bool ps5, uint16_t port)
 {
     try {
-        discovery_manager.SendWakeup(host, regist_key, ps5);
+        discovery_manager.SendWakeup(host, regist_key, ps5, port);
         return true;
     } catch (const Exception &) {
         return false;

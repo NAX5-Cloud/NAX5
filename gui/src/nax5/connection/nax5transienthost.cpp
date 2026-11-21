@@ -50,5 +50,6 @@ bool nax5FillStreamSessionConnectInfo(
         fullscreen,
         zoom,
         stretch);
+    out->direct_ports = {material.session_control_port, material.stream_port, material.senkusha_port};
     return true;
 }

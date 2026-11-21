@@ -68,6 +68,7 @@ typedef struct haptic_packet_t
 	struct StreamSessionConnectInfo
 	{
 		Settings *settings;
+		ChiakiDirectPorts direct_ports{};
 		QMap<Qt::Key, int> key_map;
 		Decoder decoder;
 		QString hw_decoder;

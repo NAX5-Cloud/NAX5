@@ -328,6 +328,8 @@ static void ctrl_disconnect_tcp(ChiakiCtrl *ctrl)
 static ChiakiErrorCode ctrl_connect_tcp(ChiakiCtrl *ctrl)
 {
 	ChiakiSession *session = ctrl->session;
+	const uint16_t direct_port = session->connect_info.direct_ports.session_control;
+	const uint16_t port = direct_port ? direct_port : SESSION_CTRL_PORT;
 	struct addrinfo *addr = session->connect_info.host_addrinfo_selected;
 	struct sockaddr *sa = malloc(addr->ai_addrlen);
 	if(!sa)
@@ -338,9 +340,9 @@ static ChiakiErrorCode ctrl_connect_tcp(ChiakiCtrl *ctrl)
 	memcpy(sa, addr->ai_addr, addr->ai_addrlen);
 
 	if(sa->sa_family == AF_INET)
-		((struct sockaddr_in *)sa)->sin_port = htons(SESSION_CTRL_PORT);
+		((struct sockaddr_in *)sa)->sin_port = htons(port);
 	else if(sa->sa_family == AF_INET6)
-		((struct sockaddr_in6 *)sa)->sin6_port = htons(SESSION_CTRL_PORT);
+		((struct sockaddr_in6 *)sa)->sin6_port = htons(port);
 	else
 	{
 		free(sa);
@@ -399,7 +401,7 @@ static ChiakiErrorCode ctrl_connect_tcp(ChiakiCtrl *ctrl)
 		return err;
 	}
 
-	CHIAKI_LOGI(session->log, "Ctrl connected to %s:%d", session->connect_info.hostname, SESSION_CTRL_PORT);
+	CHIAKI_LOGI(session->log, "Ctrl connected to %s:%d", session->connect_info.hostname, port);
 	ctrl->sock = sock;
 	return CHIAKI_ERR_SUCCESS;
 }
@@ -1296,7 +1298,9 @@ static ChiakiErrorCode ctrl_connect(ChiakiCtrl *ctrl)
 	else
 		path = "/sie/ps4/rp/sess/ctrl";
 	const char *rp_version = chiaki_rp_version_string(session->target);
-	int port = session->holepunch_session ? chiaki_get_ps_ctrl_port(session->holepunch_session) : SESSION_CTRL_PORT;
+	const uint16_t direct_port = session->connect_info.direct_ports.session_control;
+	int port = session->holepunch_session ? chiaki_get_ps_ctrl_port(session->holepunch_session)
+		: (direct_port ? direct_port : SESSION_CTRL_PORT);
 	char send_buf[512];
 	int request_len = snprintf(send_buf, sizeof(send_buf), request_fmt,
 			path, session->connect_info.hostname, port, auth_b64,

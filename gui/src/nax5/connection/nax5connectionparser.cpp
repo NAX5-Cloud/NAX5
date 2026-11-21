@@ -65,13 +65,35 @@ static Nax5SessionError connectionErrorFromCode(const QString &code, int http_st
     return Nax5SessionErrorInvalidResponse;
 }
 
+static bool parsePort(const QJsonObject &ports, const QString &name, uint16_t *out)
+{
+    const int value = ports.value(name).toInt();
+    if (value < 1 || value > 65535)
+        return false;
+    *out = static_cast<uint16_t>(value);
+    return true;
+}
+
 static bool parseConnectionObject(const QJsonObject &connection, Nax5ConnectionMaterial *material)
 {
     if (!connection.contains(QStringLiteral("version")) || !connection.value(QStringLiteral("version")).isDouble())
         return false;
     const int version = connection.value(QStringLiteral("version")).toInt();
-    if (version != Nax5ConnectionContractVersion)
+    if (version != Nax5ConnectionContractVersion && version != Nax5DirectPortsContractVersion)
         return false;
+    if (version == Nax5ConnectionContractVersion && connection.contains(QStringLiteral("ports")))
+        return false;
+    uint16_t session_control_port = 0, stream_port = 0, senkusha_port = 0, discovery_port = 0;
+    if (version == Nax5DirectPortsContractVersion)
+    {
+        const auto ports = connection.value(QStringLiteral("ports")).toObject();
+        if (!parsePort(ports, QStringLiteral("sessionControlTcp"), &session_control_port)
+            || !parsePort(ports, QStringLiteral("streamUdp"), &stream_port)
+            || !parsePort(ports, QStringLiteral("senkushaUdp"), &senkusha_port)
+            || !parsePort(ports, QStringLiteral("discoveryUdp"), &discovery_port)
+            || stream_port == senkusha_port || stream_port == discovery_port || senkusha_port == discovery_port)
+            return false;
+    }
     if (!connection.contains(QStringLiteral("target")) || !connection.value(QStringLiteral("target")).isDouble())
         return false;
     const int target = connection.value(QStringLiteral("target")).toInt();
@@ -89,6 +111,10 @@ static bool parseConnectionObject(const QJsonObject &connection, Nax5ConnectionM
 
     material->version = version;
     material->target = target;
+    material->session_control_port = session_control_port;
+    material->stream_port = stream_port;
+    material->senkusha_port = senkusha_port;
+    material->discovery_port = discovery_port;
     material->host = host;
     material->nickname = connection.value(QStringLiteral("nickname")).toString();
     material->regist_key = regist_key;

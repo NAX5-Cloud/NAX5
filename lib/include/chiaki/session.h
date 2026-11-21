@@ -72,10 +72,19 @@ CHIAKI_EXPORT void chiaki_connect_video_profile_preset(ChiakiConnectVideoProfile
 
 #define CHIAKI_SESSION_AUTH_SIZE 0x10
 
+// Zero selects the legacy destination for a direct connection.
+typedef struct chiaki_direct_ports_t
+{
+	uint16_t session_control;
+	uint16_t stream;
+	uint16_t senkusha;
+} ChiakiDirectPorts;
+
 typedef struct chiaki_connect_info_t
 {
 	bool ps5;
 	const char *host; // null terminated
+	ChiakiDirectPorts direct_ports;
 	char regist_key[CHIAKI_SESSION_AUTH_SIZE]; // must be completely filled (pad with \0)
 	uint8_t morning[0x10];
 	ChiakiConnectVideoProfile video_profile;
@@ -215,6 +224,7 @@ typedef struct chiaki_session_t
 	{
 		bool ps5;
 		struct addrinfo *host_addrinfos;
+		ChiakiDirectPorts direct_ports;
 		struct addrinfo *host_addrinfo_selected;
 		char hostname[256];
 		char regist_key[CHIAKI_RPCRYPT_KEY_SIZE];

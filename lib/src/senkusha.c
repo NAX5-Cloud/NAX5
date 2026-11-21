@@ -145,7 +145,8 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_senkusha_run(ChiakiSenkusha *senkusha, uint
 		}
 
 		memcpy(takion_info.sa, session->connect_info.host_addrinfo_selected->ai_addr, takion_info.sa_len);
-		err = set_port(takion_info.sa, htons(SENKUSHA_PORT));
+		const uint16_t direct_port = session->connect_info.direct_ports.senkusha;
+		err = set_port(takion_info.sa, htons(direct_port ? direct_port : SENKUSHA_PORT));
 		assert(err == CHIAKI_ERR_SUCCESS);
 	}
 	else

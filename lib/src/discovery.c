@@ -435,6 +435,13 @@ static void *discovery_thread_func_oneshot(void *user)
 
 CHIAKI_EXPORT ChiakiErrorCode chiaki_discovery_wakeup(ChiakiLog *log, ChiakiDiscovery *discovery, const char *host, uint64_t user_credential, bool ps5)
 {
+	return chiaki_discovery_wakeup_port(log, discovery, host, user_credential, ps5, 0);
+}
+
+CHIAKI_EXPORT ChiakiErrorCode chiaki_discovery_wakeup_port(ChiakiLog *log, ChiakiDiscovery *discovery, const char *host, uint64_t user_credential, bool ps5, uint16_t port)
+{
+	if(!port)
+		port = ps5 ? CHIAKI_DISCOVERY_PORT_PS5 : CHIAKI_DISCOVERY_PORT_PS4;
 	struct addrinfo *addrinfos;
 	// make hostname use ipv4 for now
 	struct addrinfo hints;
@@ -471,9 +478,9 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_discovery_wakeup(ChiakiLog *log, ChiakiDisc
 		return CHIAKI_ERR_UNKNOWN;
 	}
 	if(((struct sockaddr *)&addr)->sa_family == AF_INET)
-		((struct sockaddr_in *)&addr)->sin_port = htons(ps5 ? CHIAKI_DISCOVERY_PORT_PS5 : CHIAKI_DISCOVERY_PORT_PS4);
+		((struct sockaddr_in *)&addr)->sin_port = htons(port);
 	else
-		addr.sin6_port = htons(ps5 ? CHIAKI_DISCOVERY_PORT_PS5 : CHIAKI_DISCOVERY_PORT_PS4);
+		addr.sin6_port = htons(port);
 
 	ChiakiDiscoveryPacket packet = { 0 };
 	packet.cmd = CHIAKI_DISCOVERY_CMD_WAKEUP;

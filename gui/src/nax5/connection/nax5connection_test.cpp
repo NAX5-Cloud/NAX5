@@ -88,6 +88,33 @@ static void test_missing_and_unsupported()
     expect(nax5ParseConnectionResponse(200, connectionBody(regist, morning, QStringLiteral("203.0.113.10"), 1, 800)).error == Nax5SessionErrorInvalidResponse, "unsupported target");
 }
 
+static void test_explicit_direct_ports()
+{
+    auto body = connectionBody(sixteen('A'), sixteen('B'), QStringLiteral("203.0.113.10"), 2);
+    body.chop(2);
+    body += R"(,"ports":{"sessionControlTcp":19295,"streamUdp":19296,"senkushaUdp":19297,"discoveryUdp":19302}}})";
+    auto result = nax5ParseConnectionResponse(200, body);
+    expect(result.has_material && result.material.session_control_port == 19295
+        && result.material.stream_port == 19296 && result.material.senkusha_port == 19297
+        && result.material.discovery_port == 19302, "v2 routes all destinations");
+    result.material.clear();
+    expect(result.material.session_control_port == 0 && result.material.discovery_port == 0,
+        "discarded material discards ports");
+    const auto legacy = nax5ParseConnectionResponse(200, connectionBody(sixteen('A'), sixteen('B')));
+    expect(legacy.has_material && legacy.material.session_control_port == 0
+        && legacy.material.stream_port == 0 && legacy.material.senkusha_port == 0
+        && legacy.material.discovery_port == 0, "v1 uses native defaults");
+    auto invalid = body;
+    invalid.replace("19302", "65536");
+    expect(!nax5ParseConnectionResponse(200, invalid).has_material, "v2 rejects out of range port");
+    invalid = body;
+    invalid.replace("19302", "19302.5");
+    expect(!nax5ParseConnectionResponse(200, invalid).has_material, "v2 rejects fractional port");
+    invalid = body;
+    invalid.replace("19302", "19296");
+    expect(!nax5ParseConnectionResponse(200, invalid).has_material, "v2 rejects duplicate UDP destinations");
+}
+
 static void test_http_errors()
 {
     expect(nax5ParseConnectionResponse(401, "{\"code\":\"UNAUTHENTICATED\"}").error == Nax5SessionErrorUnauthenticated, "401");
@@ -202,6 +229,7 @@ int main(int argc, char **argv)
     test_valid_base64_keys();
     test_invalid_base64_and_length();
     test_missing_and_unsupported();
+    test_explicit_direct_ports();
     test_http_errors();
     test_cleanup_and_duplicate_state();
     test_decode_and_operator_test_payload();

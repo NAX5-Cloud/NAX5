@@ -1092,7 +1092,7 @@ void Nax5SessionController::startStream()
         const Nax5MaterialWakeup wakeup = nax5MaterialWakeupCall(material.host, material.regist_key, true);
         if (wakeup.ready)
         {
-            const bool sent = backend->sendMaterialWakeup(wakeup.host, wakeup.regist_key, wakeup.ps5);
+            const bool sent = backend->sendMaterialWakeup(wakeup.host, wakeup.regist_key, wakeup.ps5, material.discovery_port);
             qCInfo(nax5SessionLog) << (sent ? "wakeup sent" : "wakeup failed")
                                    << nax5WakeupHostKindName(wakeup.host);
         }

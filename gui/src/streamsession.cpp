@@ -291,6 +291,7 @@ StreamSession::StreamSession(const StreamSessionConnectInfo &connect_info, QObje
 	ChiakiConnectInfo chiaki_connect_info = {};
 	chiaki_connect_info.ps5 = chiaki_target_is_ps5(connect_info.target);
 	chiaki_connect_info.host = host_str.constData();
+	chiaki_connect_info.direct_ports = connect_info.direct_ports;
 	chiaki_connect_info.video_profile = connect_info.video_profile;
 	chiaki_connect_info.video_profile_auto_downgrade = true;
 	chiaki_connect_info.enable_keyboard = false;

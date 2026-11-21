@@ -110,6 +110,7 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_discovery_thread_stop(ChiakiDiscoveryThread
  * @param discovery Discovery to send the packet on. May be NULL, in which case a new temporary Discovery will be created
  */
 CHIAKI_EXPORT ChiakiErrorCode chiaki_discovery_wakeup(ChiakiLog *log, ChiakiDiscovery *discovery, const char *host, uint64_t user_credential, bool ps5);
+CHIAKI_EXPORT ChiakiErrorCode chiaki_discovery_wakeup_port(ChiakiLog *log, ChiakiDiscovery *discovery, const char *host, uint64_t user_credential, bool ps5, uint16_t port);
 
 #ifdef __cplusplus
 }

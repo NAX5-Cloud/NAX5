@@ -4,6 +4,10 @@ void Nax5ConnectionMaterial::clear()
 {
     version = 0;
     target = 0;
+    session_control_port = 0;
+    stream_port = 0;
+    senkusha_port = 0;
+    discovery_port = 0;
     host.clear();
     nickname.clear();
     if (!regist_key.isEmpty())

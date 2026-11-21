@@ -249,6 +249,7 @@ CHIAKI_EXPORT ChiakiErrorCode chiaki_session_init(ChiakiSession *session, Chiaki
 	chiaki_controller_state_set_idle(&session->controller_state);
 
 	session->connect_info.ps5 = connect_info->ps5;
+	session->connect_info.direct_ports = connect_info->direct_ports;
 	const uint8_t did_prefix[] = { 0x00, 0x18, 0x00, 0x00, 0x00, 0x07, 0x00, 0x40, 0x00, 0x80 };
 	const uint8_t did_suffix[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	memcpy(session->connect_info.did, did_prefix, sizeof(did_prefix));
@@ -759,6 +760,8 @@ static void parse_session_response(SessionResponse *response, ChiakiHttpResponse
  */
 static ChiakiErrorCode session_thread_request_session(ChiakiSession *session, ChiakiTarget *target_out)
 {
+	const uint16_t direct_port = session->connect_info.direct_ports.session_control;
+	int port = !session->rudp && direct_port ? direct_port : SESSION_PORT;
 	chiaki_socket_t session_sock = CHIAKI_INVALID_SOCKET;
 	uint16_t remote_counter = 0;
 	if(session->rudp)
@@ -802,7 +805,7 @@ static ChiakiErrorCode session_thread_request_session(ChiakiSession *session, Ch
 				continue;
 			}
 
-			set_port(sa, htons(SESSION_PORT));
+			set_port(sa, htons(port));
 
 			// TODO: this can block, make cancelable somehow
 			int r = getnameinfo(sa, (socklen_t)ai->ai_addrlen, session->connect_info.hostname, sizeof(session->connect_info.hostname), NULL, 0, NI_NUMERICHOST);
@@ -812,7 +815,7 @@ static ChiakiErrorCode session_thread_request_session(ChiakiSession *session, Ch
 				memcpy(session->connect_info.hostname, "unknown", 8);
 			}
 
-			CHIAKI_LOGI(session->log, "Trying to request session from %s:%d", session->connect_info.hostname, SESSION_PORT);
+			CHIAKI_LOGI(session->log, "Trying to request session from %s:%d", session->connect_info.hostname, port);
 
 			session_sock = socket(ai->ai_family, SOCK_STREAM, 0);
 			if(CHIAKI_SOCKET_IS_INVALID(session_sock))
@@ -881,7 +884,7 @@ static ChiakiErrorCode session_thread_request_session(ChiakiSession *session, Ch
 			return CHIAKI_ERR_NETWORK;
 		}
 		else
-			CHIAKI_LOGI(session->log, "Connected to %s:%d", session->connect_info.hostname, SESSION_PORT);
+			CHIAKI_LOGI(session->log, "Connected to %s:%d", session->connect_info.hostname, port);
 	}
 
 	static const char session_request_fmt[] =
@@ -932,7 +935,6 @@ static ChiakiErrorCode session_thread_request_session(ChiakiSession *session, Ch
 	}
 
 	char send_buf[512];
-	int port = SESSION_PORT;
 	if(session->holepunch_session)
 	{
 		chiaki_get_ps_selected_addr(session->holepunch_session, session->connect_info.hostname);

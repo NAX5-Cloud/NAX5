@@ -106,6 +106,7 @@ QNetworkReply *Nax5ApiClient::sendJson(Nax5ApiLane lane, quint64 request_id, con
     request.setHeader(QNetworkRequest::UserAgentHeader, Nax5ApiConfig::userAgent());
     request.setRawHeader("X-NAX5-Client-Version", nax5ClientVersion().toUtf8());
     request.setRawHeader("X-NAX5-Client-SHA", nax5ClientSha().toUtf8());
+    request.setRawHeader("X-NAX5-Connection-Version", "2");
     request.setTransferTimeout(Nax5ApiConfig::requestTimeoutMs());
     if (!session_token.isEmpty())
         request.setRawHeader("X-Session-Token", session_token.toUtf8());

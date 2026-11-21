@@ -66,7 +66,7 @@ class DiscoveryManager : public QObject
 		void SetActive(bool active);
 		void SetSettings(Settings *settings);
 
-		void SendWakeup(const QString &host, const QByteArray &regist_key, bool ps5);
+		void SendWakeup(const QString &host, const QByteArray &regist_key, bool ps5, uint16_t port = 0);
 
 		bool GetActive() const { return service_active; }
 		const QList<DiscoveryHost> GetHosts() const;
